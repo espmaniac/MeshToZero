@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+  width="134" height="82" viewBox="0 0 134 82"
+  shape-rendering="geometricPrecision">
+  <title>MeshToZero 1:1 vector logo</title>
+  <desc>Fully vector reconstruction matching the supplied reference.</desc>
+
+  <!-- Rear half of the closed CAD rotation ring -->
+  <path d="M8.5 49 A59.5 12.5 0 0 1 32.5 39.2"
+        fill="none" stroke="#5A5A5A" stroke-width="2.35"
+        stroke-linecap="round"/>
+  <path d="M103.5 39.2 A59.5 12.5 0 0 1 127.5 49"
+        fill="none" stroke="#5A5A5A" stroke-width="2.35"
+        stroke-linecap="round"/>
+
+  <!-- Extruded M legs -->
+  <path d="M32 16 L42 23 L42 72 L32 68 Z" fill="#D0D0D0"/>
+  <path d="M42 23 L51 30 L51 64 L42 72 Z" fill="#181818"/>
+  <path d="M94 23 L85 30 L85 64 L94 72 Z" fill="#181818"/>
+  <path d="M103 16 L94 23 L94 72 L103 68 Z" fill="#D0D0D0"/>
+
+  <!-- Narrow planar seams visible in the raster reference -->
+  <path d="M32 16 L33.4 17 L33.4 68.6 L32 68 Z" fill="#E5E5E5"/>
+  <path d="M40.5 22 L42 23 L42 72 L40.5 70.8 Z" fill="#B8B8B8"/>
+  <path d="M95.5 22 L94 23 L94 72 L95.5 70.8 Z" fill="#B8B8B8"/>
+  <path d="M103 16 L101.6 17 L101.6 68.6 L103 68 Z" fill="#E5E5E5"/>
+
+  <!-- Exact six-point top ribbon -->
+  <path d="M33 15 L67 42 L102 16 L94 9 L67 29 L42 9 Z"
+        fill="#5A5A5A"/>
+
+  <!-- Front half completes the same closed ellipse -->
+  <path d="M8.5 49 A59.5 12.5 0 0 0 127.5 49"
+        fill="none" stroke="#5A5A5A" stroke-width="2.35"
+        stroke-linecap="round"/>
+
+  <!-- Ring marker; its centre lies directly on the ellipse -->
+  <circle cx="118" cy="43.6" r="8.0" fill="#5A5A5A"/>
+  <path d="M117.398,46.111 L120.856,46.111 L120.856,47.600 L115.144,47.600 L115.144,46.111 L118.013,43.578 Q118.398,43.231 118.582,42.899 Q118.765,42.568 118.765,42.211 Q118.765,41.658 118.395,41.321 Q118.024,40.984 117.408,40.984 Q116.935,40.984 116.371,41.187 Q115.808,41.389 115.166,41.789 L115.166,40.063 Q115.850,39.837 116.519,39.720 Q117.187,39.600 117.829,39.600 Q119.240,39.600 120.022,40.221 Q120.803,40.841 120.803,41.953 Q120.803,42.595 120.472,43.150 Q120.140,43.704 119.077,44.637 L117.398,46.111 Z" fill="#FFFFFF"/>
+
+  <!-- Origin -->
+  <circle cx="68" cy="71.2" r="6.25" fill="#5A5A5A"/>
+  <circle cx="68" cy="71.2" r="2.65" fill="#FFFFFF"/>
+</svg>

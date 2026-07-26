@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Center, rotate, and level 3D mesh files with a precise visual workspace.">
+    <meta name="theme-color" content="#d4d4d4">
+    <title>MeshToZero</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+    <script>
+      (() => {
+        const savedTheme = localStorage.getItem("mesh-to-zero-theme");
+        const preferredTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = savedTheme || preferredTheme;
+      })();
+    </script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <svg class="icon-library" aria-hidden="true">
+      <symbol id="icon-import" viewBox="0 0 24 24">
+        <path d="M3.5 6.5h6l2 2h9v10.5a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V6.5Z"/>
+        <path d="M12 17V11m0 0-2.5 2.5M12 11l2.5 2.5"/>
+      </symbol>
+      <symbol id="icon-export" viewBox="0 0 24 24">
+        <path d="M12 15V3m0 0L8.5 6.5M12 3l3.5 3.5"/>
+        <path d="M5 11v8.5h14V11"/>
+      </symbol>
+      <symbol id="icon-undo" viewBox="0 0 24 24">
+        <path d="m9 7-5 5 5 5"/>
+        <path d="M5 12h8.5a5.5 5.5 0 0 1 5.5 5.5V19"/>
+      </symbol>
+      <symbol id="icon-redo" viewBox="0 0 24 24">
+        <path d="m15 7 5 5-5 5"/>
+        <path d="M19 12h-8.5A5.5 5.5 0 0 0 5 17.5V19"/>
+      </symbol>
+      <symbol id="icon-history" viewBox="0 0 24 24">
+        <path d="M3.5 8V3.5M3.5 8H8"/>
+        <path d="M4.7 6.2A9 9 0 1 1 3 14"/>
+        <path d="M12 7v5l3.5 2"/>
+      </symbol>
+      <symbol id="icon-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3.5"/>
+        <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/>
+      </symbol>
+      <symbol id="icon-moon" viewBox="0 0 24 24">
+        <path d="M20 15.1A8.3 8.3 0 0 1 8.9 4a8.3 8.3 0 1 0 11.1 11.1Z"/>
+      </symbol>
+      <symbol id="icon-cube" viewBox="0 0 24 24">
+        <path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4l8-4.6Z"/>
+        <path d="m4.4 7.6 7.6 4.5 7.6-4.5M12 12.1v8.6M7.9 5l8.2 14"/>
+      </symbol>
+      <symbol id="icon-level" viewBox="0 0 24 24">
+        <path d="M4 5h16M7 2v6m10-6v6M3 12h18M6 9v6m12-6v6M4 19h16"/>
+        <path d="m9 16 3 3 3-3"/>
+      </symbol>
+      <symbol id="icon-lay-flat" viewBox="0 0 24 24">
+        <path d="m5 5 14 4-3 7-14-4 3-7Z"/>
+        <path d="M20 4v5h-5M4 20h16"/>
+      </symbol>
+      <symbol id="icon-drop-bed" viewBox="0 0 24 24">
+        <path d="M12 3v12m0 0-4-4m4 4 4-4M4 20h16"/>
+      </symbol>
+      <symbol id="icon-plane" viewBox="0 0 24 24">
+        <rect x="3.5" y="3.5" width="17" height="17" rx="2"/>
+        <path d="M9 4v16m6-16v16M4 9h16M4 15h16"/>
+      </symbol>
+      <symbol id="icon-mesh" viewBox="0 0 24 24">
+        <rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/>
+        <path d="M9 4v16m6-16v16M4 9h16M4 15h16"/>
+      </symbol>
+      <symbol id="icon-vertices" viewBox="0 0 24 24">
+        <path d="m12 3 8 9-8 9-8-9 8-9Z"/>
+        <circle class="icon-fill" cx="12" cy="3" r="1.7"/>
+        <circle class="icon-fill" cx="20" cy="12" r="1.7"/>
+        <circle class="icon-fill" cx="12" cy="21" r="1.7"/>
+        <circle class="icon-fill" cx="4" cy="12" r="1.7"/>
+      </symbol>
+      <symbol id="icon-edges" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="16" height="16" rx="1"/>
+        <circle class="icon-fill" cx="4" cy="4" r="1.5"/>
+        <circle class="icon-fill" cx="20" cy="4" r="1.5"/>
+        <circle class="icon-fill" cx="20" cy="20" r="1.5"/>
+        <circle class="icon-fill" cx="4" cy="20" r="1.5"/>
+      </symbol>
+      <symbol id="icon-link" viewBox="0 0 24 24">
+        <path d="M10.5 13.5a4 4 0 0 0 5.7.1l2.2-2.2a4 4 0 0 0-5.7-5.7l-1.3 1.3"/>
+        <path d="M13.5 10.5a4 4 0 0 0-5.7-.1l-2.2 2.2a4 4 0 0 0 5.7 5.7l1.3-1.3"/>
+      </symbol>
+      <symbol id="icon-unlink" viewBox="0 0 24 24">
+        <path d="M15.5 14.5h.7a4 4 0 0 0 2.2-7.1l-1.8-1.8a4 4 0 0 0-5.7 0l-.5.5M8.5 9.5h-.7a4 4 0 0 0-2.2 7.1l1.8 1.8a4 4 0 0 0 5.7 0l.5-.5M4 4l16 16"/>
+      </symbol>
+      <symbol id="icon-orbit" viewBox="0 0 24 24">
+        <path d="M20.5 7.5V3.8l-2.2 2.1A8.5 8.5 0 0 0 4 9"/>
+        <path d="M3.5 16.5v3.7l2.2-2.1A8.5 8.5 0 0 0 20 15"/>
+      </symbol>
+      <symbol id="icon-move" viewBox="0 0 24 24">
+        <path d="M12 2v20M2 12h20"/>
+        <path d="m9 5 3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3m14-6 3 3-3 3"/>
+      </symbol>
+      <symbol id="icon-rotate" viewBox="0 0 24 24">
+        <path d="M20 8V3l-2.6 2.6A8.5 8.5 0 1 0 20.2 15"/>
+        <path d="M20 3h-5"/>
+      </symbol>
+      <symbol id="icon-hand" viewBox="0 0 24 24">
+        <path d="M7.5 11V6.5a1.5 1.5 0 0 1 3 0V10m0-4.5V4a1.5 1.5 0 0 1 3 0v6m0-4.5a1.5 1.5 0 0 1 3 0V10m0-2.5a1.5 1.5 0 0 1 3 0V14c0 4.4-2.7 7-7 7h-.7a6 6 0 0 1-4.7-2.3L3.8 14a1.7 1.7 0 0 1 2.5-2.3L7.5 13v-2Z"/>
+      </symbol>
+      <symbol id="icon-zoom-in" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5"/>
+        <path d="m15.5 15.5 5 5M10.5 7.5v6m-3-3h6"/>
+      </symbol>
+      <symbol id="icon-zoom-out" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5"/>
+        <path d="m15.5 15.5 5 5M7.5 10.5h6"/>
+      </symbol>
+      <symbol id="icon-fit" viewBox="0 0 24 24">
+        <path d="M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5"/>
+        <path d="M8 8h8v8H8z"/>
+      </symbol>
+      <symbol id="icon-focus" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="6"/>
+        <circle cx="12" cy="12" r="2"/>
+        <path d="M12 1v4m0 14v4M1 12h4m14 0h4"/>
+      </symbol>
+      <symbol id="icon-chevron" viewBox="0 0 24 24">
+        <path d="m8 10 4 4 4-4"/>
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path d="m5 12 4 4L19 6"/>
+      </symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M18 6 6 18"/>
+      </symbol>
+      <symbol id="icon-eye" viewBox="0 0 24 24">
+        <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/>
+        <circle cx="12" cy="12" r="2.6"/>
+      </symbol>
+      <symbol id="icon-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 3h6l1 4H8l1-4Zm-3 4 1 14h10l1-14M10 11v6m4-6v6"/>
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14"/>
+      </symbol>
+    </svg>
+
+    <div class="app-shell">
+      <main class="workspace" aria-label="3D mesh alignment workspace">
+        <canvas id="viewportCanvas" aria-label="Interactive 3D preview. Left-drag the transform gizmo, middle-drag to orbit, right-drag to pan, or left-click the model when a surface or construction-reference tool is open."></canvas>
+
+        <div class="drop-overlay" id="dropOverlay" role="status" aria-live="polite" aria-hidden="true">
+          <div class="drop-card">
+            <span class="drop-icon" aria-hidden="true">
+              <svg class="icon"><use href="#icon-import"></use></svg>
+            </span>
+            <strong>Drop model to import</strong>
+            <span>PLY, OBJ, or STL</span>
+          </div>
+        </div>
+
+        <header class="topbar">
+          <a class="brand" href="#" aria-label="MeshToZero home">
+            <img src="favicon.svg" alt="" width="64" height="48">
+            <span>MeshToZero</span>
+          </a>
+
+          <div class="header-actions">
+            <div class="history-actions" role="group" aria-label="Edit history">
+              <button class="history-button" id="undoButton" type="button" aria-label="Nothing to undo" title="Nothing to undo" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg>
+              </button>
+              <button class="history-button" id="redoButton" type="button" aria-label="Nothing to redo" title="Nothing to redo" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#icon-redo"></use></svg>
+              </button>
+            </div>
+            <button class="action-button" id="importButton" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#icon-import"></use></svg>
+              <span>Import Model</span>
+            </button>
+            <button class="action-button" id="exportButton" type="button" disabled>
+              <svg class="icon" aria-hidden="true"><use href="#icon-export"></use></svg>
+              <span>Export Model</span>
+            </button>
+            <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch theme">
+              <svg class="icon theme-icon theme-icon-sun" aria-hidden="true"><use href="#icon-sun"></use></svg>
+              <svg class="icon theme-icon theme-icon-moon" aria-hidden="true"><use href="#icon-moon"></use></svg>
+            </button>
+            <input id="fileInput" type="file" accept=".ply,.obj,.stl" hidden>
+          </div>
+        </header>
+
+        <div class="model-status" id="modelStatus" aria-live="polite" hidden>
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="modelName">Untitled mesh</span>
+          <button id="clearModelButton" type="button" aria-label="Clear selected model">×</button>
+        </div>
+
+        <aside class="left-rail" aria-label="Model tools">
+          <nav class="tool-panel" id="toolPanel" aria-label="Model tools">
+            <button class="rail-button" type="button" data-section="rotation" aria-pressed="false" aria-controls="rotationWorkbench">
+              <svg class="icon" aria-hidden="true"><use href="#icon-cube"></use></svg>
+              <span>Rotate to Axes</span>
+            </button>
+            <button class="rail-button" type="button" data-section="level" aria-pressed="false" aria-controls="levelWorkbench">
+              <svg class="icon" aria-hidden="true"><use href="#icon-level"></use></svg>
+              <span>Align &amp; Level</span>
+            </button>
+            <button class="rail-button" id="layFlatButton" type="button" data-section="lay-flat" aria-pressed="false" aria-controls="layFlatWorkbench">
+              <svg class="icon" aria-hidden="true"><use href="#icon-lay-flat"></use></svg>
+              <span>Lay Flat</span>
+            </button>
+            <button class="rail-button" id="dropToBedButton" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#icon-drop-bed"></use></svg>
+              <span>Drop to Bed</span>
+            </button>
+            <button class="rail-button" id="planeButton" type="button" aria-expanded="false" aria-controls="planeWorkbench">
+              <svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg>
+              <span>Create Plane</span>
+            </button>
+          </nav>
+
+          <section class="plane-workbench" id="planeWorkbench" aria-labelledby="planeWorkbenchTitle" hidden>
+            <header class="workbench-header">
+              <div>
+                <p class="eyebrow">Construction geometry</p>
+                <h2 id="planeWorkbenchTitle">Create Plane</h2>
+              </div>
+              <button class="icon-button" id="closePlaneWorkbench" type="button" aria-label="Close plane tools">
+                <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+              </button>
+            </header>
+
+            <div class="workbench-scroll">
+            <section class="origin-plane-section" aria-labelledby="originPlanesTitle">
+              <p class="workbench-label" id="originPlanesTitle">Origin planes</p>
+              <div class="origin-plane-list">
+                <button class="origin-plane-toggle is-active" type="button" data-origin-plane="top" aria-pressed="true">
+                  <span>
+                    <strong>Top</strong>
+                    <small>XY · Z = 0</small>
+                  </span>
+                  <span class="toggle-track" aria-hidden="true"><span></span></span>
+                </button>
+                <button class="origin-plane-toggle is-active" type="button" data-origin-plane="front" aria-pressed="true">
+                  <span>
+                    <strong>Front</strong>
+                    <small>XZ · Y = 0</small>
+                  </span>
+                  <span class="toggle-track" aria-hidden="true"><span></span></span>
+                </button>
+                <button class="origin-plane-toggle is-active" type="button" data-origin-plane="right" aria-pressed="true">
+                  <span>
+                    <strong>Right</strong>
+                    <small>YZ · X = 0</small>
+                  </span>
+                  <span class="toggle-track" aria-hidden="true"><span></span></span>
+                </button>
+              </div>
+            </section>
+
+            <section class="plane-mode-section" aria-labelledby="planeModeTitle">
+              <p class="workbench-label" id="planeModeTitle">Creation mode</p>
+              <div class="plane-mode-switch" role="group" aria-label="Plane creation mode">
+                <button class="plane-mode-button is-active" type="button" data-plane-mode="automatic" aria-pressed="true">
+                  <strong>Automatic</strong>
+                  <small>Analyze model</small>
+                </button>
+                <button class="plane-mode-button" type="button" data-plane-mode="manual" aria-pressed="false">
+                  <strong>Manual</strong>
+                  <small>Pick references</small>
+                </button>
+              </div>
+              <p class="plane-mode-description" id="planeModeDescription">Create planes from the complete model automatically.</p>
+            </section>
+
+            <section class="model-center-section" id="modelCenterSection" aria-labelledby="modelCenterTitle" hidden>
+              <p class="workbench-label" id="modelCenterTitle">Point reference</p>
+              <div class="model-center-card">
+                <div class="model-center-summary">
+                  <span class="model-center-symbol" aria-hidden="true">
+                    <svg class="icon"><use href="#icon-focus"></use></svg>
+                  </span>
+                  <span class="model-center-copy">
+                    <strong>Model center</strong>
+                    <small>Exact source-space AABB midpoint</small>
+                  </span>
+                  <button class="plane-row-action" id="modelCenterVisibility" type="button" aria-label="Hide model center" aria-pressed="true">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-eye"></use></svg>
+                  </button>
+                </div>
+                <div class="model-center-coordinates">
+                  <span>Source</span>
+                  <strong id="modelCenterLocal">X 0 · Y 0 · Z 0</strong>
+                  <span>World</span>
+                  <strong id="modelCenterWorld">X 0 · Y 0 · Z 0</strong>
+                </div>
+                <button class="model-center-use" id="useModelCenter" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>
+                  <span>Use as point</span>
+                </button>
+              </div>
+            </section>
+
+            <div class="method-section">
+              <p class="workbench-label" id="planeMethodGroupLabel">Automatic methods</p>
+              <div class="plane-methods" data-plane-mode-panel="automatic" role="group" aria-label="Automatic construction plane method">
+                <button class="method-button is-active" type="button" data-plane-method="auto-axes" aria-pressed="true">Auto Axes</button>
+                <button class="method-button" type="button" data-plane-method="bounds" aria-pressed="false">Boundary Box</button>
+              </div>
+              <div class="plane-methods" data-plane-mode-panel="manual" role="group" aria-label="Manual construction plane method" hidden>
+                <button class="method-button" type="button" data-plane-method="planar-surface" aria-pressed="false">Planar Surface</button>
+                <button class="method-button is-active" type="button" data-plane-method="three-points" aria-pressed="true">3 Points</button>
+                <button class="method-button" type="button" data-plane-method="best-fit" aria-pressed="false">Best Fit</button>
+                <button class="method-button" type="button" data-plane-method="tangent" aria-pressed="false">Tangent</button>
+                <button class="method-button" type="button" data-plane-method="two-edges" aria-pressed="false">2 Edges</button>
+                <button class="method-button" type="button" data-plane-method="along-path" aria-pressed="false">Along Path</button>
+                <button class="method-button" type="button" data-plane-method="offset" aria-pressed="false">Offset</button>
+                <button class="method-button" type="button" data-plane-method="angle" aria-pressed="false">At Angle</button>
+                <button class="method-button" type="button" data-plane-method="midplane" aria-pressed="false">Midplane</button>
+                <button class="method-button" type="button" data-plane-method="perpendicular" aria-pressed="false">Perpendicular</button>
+              </div>
+              <p class="method-description" id="planeMethodDescription"></p>
+            </div>
+
+            <div class="workbench-fields">
+              <label class="workbench-field" id="referenceAField" hidden>
+                <span>Reference plane</span>
+                <select id="planeReferenceA"></select>
+              </label>
+              <label class="workbench-field" id="referenceBField" hidden>
+                <span>Second plane</span>
+                <select id="planeReferenceB"></select>
+              </label>
+              <label class="workbench-field" id="distanceField" hidden>
+                <span>Distance</span>
+                <span class="unit-input"><input id="planeDistance" type="number" value="10" step="0.1"><small>mm</small></span>
+              </label>
+              <label class="workbench-field" id="angleField" hidden>
+                <span>Angle</span>
+                <span class="unit-input"><input id="planeAngle" type="number" value="45" step="1"><small>deg</small></span>
+              </label>
+              <label class="workbench-field" id="pathPositionField" hidden>
+                <span>Path position</span>
+                <span class="unit-input"><input id="pathPosition" type="number" value="50" min="0" max="100" step="1"><small>%</small></span>
+              </label>
+              <label class="workbench-field" id="boundsOrientationField" hidden>
+                <span>Box orientation</span>
+                <select id="boundsOrientation">
+                  <option value="model">Model axes (oriented)</option>
+                  <option value="source">Source axes (AABB)</option>
+                </select>
+              </label>
+              <label class="workbench-field" id="boundsSetField" hidden>
+                <span>Plane set</span>
+                <select id="boundsPlaneSet">
+                  <option value="faces">6 boundary faces</option>
+                  <option value="centers">3 center planes</option>
+                </select>
+              </label>
+              <label class="workbench-field">
+                <span>Name</span>
+                <input id="planeName" type="text" maxlength="48" placeholder="Automatic name">
+              </label>
+            </div>
+
+            <section class="reference-selection" id="referenceSelection" aria-labelledby="selectionTitle">
+              <div class="selection-heading">
+                <div>
+                  <p class="workbench-label" id="selectionTitle">Model references</p>
+                  <strong id="selectionCount">0 / 3 points</strong>
+                </div>
+                <button class="text-button" id="clearPlaneSelection" type="button">Clear</button>
+              </div>
+              <p id="selectionInstruction">Left-click three model vertices.</p>
+              <div class="selection-dots" id="selectionDots" aria-hidden="true"></div>
+            </section>
+
+            <section class="bounds-readout" id="boundsReadout" hidden>
+              <div>
+                <span>Source AABB center</span>
+                <strong id="boundsCenter">X 0 · Y 0 · Z 0</strong>
+              </div>
+              <div>
+                <span>Source AABB size</span>
+                <strong id="boundsSize">X 0 · Y 0 · Z 0</strong>
+              </div>
+            </section>
+
+            <button class="create-plane-button" id="createPlaneButton" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>
+              <span>Create Plane</span>
+            </button>
+
+            <section class="created-section" aria-labelledby="createdPlanesTitle">
+              <div class="created-heading">
+                <p class="workbench-label" id="createdPlanesTitle">Created planes</p>
+                <button class="text-button" id="clearCreatedPlanes" type="button">Clear all</button>
+              </div>
+              <div class="created-plane-list" id="createdPlaneList">
+                <p class="empty-planes">No construction planes yet.</p>
+              </div>
+            </section>
+            </div>
+          </section>
+
+        <section class="alignment-workbench lay-flat-workbench" id="layFlatWorkbench" aria-labelledby="layFlatWorkbenchTitle" hidden>
+          <header class="workbench-header">
+            <div>
+              <p class="eyebrow">Bed placement</p>
+              <h2 id="layFlatWorkbenchTitle">Lay Flat</h2>
+            </div>
+            <button class="icon-button" id="closeLayFlatWorkbench" type="button" aria-label="Cancel Lay Flat">
+              <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+            </button>
+          </header>
+
+          <div class="workbench-scroll">
+            <p class="alignment-copy">Choose a flat model surface. MeshToZero fits its local plane, turns the model from its current state, and places that surface on Z = 0.</p>
+
+            <div class="alignment-empty lay-flat-selection" role="status" aria-live="polite">
+              <svg class="icon" aria-hidden="true"><use href="#icon-lay-flat"></use></svg>
+              <strong id="layFlatSelectionStatus">Choose a planar surface</strong>
+              <span id="layFlatSelectionHint">Left-click away from edges. Meshes and point clouds are supported.</span>
+            </div>
+
+            <p class="alignment-hint">The side that keeps the rest of the model above the bed is selected automatically. The operation is saved as one undoable edit.</p>
+
+            <div class="alignment-actions lay-flat-actions">
+              <button class="alignment-cancel-button" id="cancelLayFlat" type="button">Cancel</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="alignment-workbench" id="rotationWorkbench" aria-labelledby="rotationWorkbenchTitle" hidden>
+          <header class="workbench-header">
+            <div>
+              <p class="eyebrow">Automatic alignment</p>
+              <h2 id="rotationWorkbenchTitle">Rotate to Axes</h2>
+            </div>
+            <button class="icon-button" id="closeRotationWorkbench" type="button" aria-label="Cancel automatic alignment">
+              <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+            </button>
+          </header>
+
+          <div class="workbench-scroll">
+            <p class="alignment-copy">MeshToZero analyzes the convex hull, finds a best-fit oriented box, and keeps position and scale unchanged.</p>
+
+            <div class="alignment-status" id="rotationAnalysisStatus" role="status" aria-live="polite">
+              <span class="alignment-status-dot" aria-hidden="true"></span>
+              <span id="rotationAnalysisText">Ready to analyze the model.</span>
+            </div>
+
+            <section class="orientation-results" id="orientationResults" aria-labelledby="orientationResultsTitle" hidden>
+              <div class="alignment-section-heading">
+                <p class="workbench-label" id="orientationResultsTitle">Choose the correct up side</p>
+                <button class="text-button" id="recalculateOrientation" type="button">Recalculate</button>
+              </div>
+              <div class="orientation-candidate-list" id="orientationCandidateList" role="listbox" aria-label="Automatic orientation candidates"></div>
+              <p class="alignment-hint">Selecting an option previews it. Turn 90° changes which way the model faces while keeping every axis exact.</p>
+              <button class="alignment-adjust-button" id="turnOrientation" type="button" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
+                <span>Turn 90° around Z</span>
+              </button>
+            </section>
+
+            <button class="alignment-analyze-button" id="analyzeOrientation" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#icon-cube"></use></svg>
+              <span>Analyze Orientation</span>
+            </button>
+
+            <div class="alignment-actions">
+              <button class="alignment-cancel-button" id="cancelOrientation" type="button">Cancel</button>
+              <button class="alignment-apply-button" id="applyOrientation" type="button" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                <span>Apply Rotation</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="alignment-workbench" id="levelWorkbench" aria-labelledby="levelWorkbenchTitle" hidden>
+          <header class="workbench-header">
+            <div>
+              <p class="eyebrow">Reference alignment</p>
+              <h2 id="levelWorkbenchTitle">Align &amp; Level</h2>
+            </div>
+            <button class="icon-button" id="closeLevelWorkbench" type="button" aria-label="Cancel manual alignment">
+              <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+            </button>
+          </header>
+
+          <div class="workbench-scroll">
+            <p class="alignment-copy">A model plane supplies an exact origin, normal, and in-plane X direction. Matching all three can place a flat face on an origin plane or align a center plane precisely.</p>
+
+            <div class="alignment-empty" id="levelEmptyState">
+              <svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg>
+              <strong>Create a model plane first</strong>
+              <span>Use a face, three points, two edges, or best fit in the Plane tool.</span>
+              <button class="alignment-adjust-button" id="openPlaneForLevel" type="button">Open Plane Tool</button>
+            </div>
+
+            <div id="levelControls" hidden>
+              <div class="alignment-fields">
+                <label class="workbench-field">
+                  <span>Model reference</span>
+                  <select id="levelSourcePlane"></select>
+                </label>
+                <label class="workbench-field">
+                  <span>World target</span>
+                  <select id="levelTargetPlane">
+                    <option value="z">Top (XY) · Normal +Z</option>
+                    <option value="y">Front (XZ) · Normal +Y</option>
+                    <option value="x">Right (YZ) · Normal +X</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="alignment-summary" id="levelAlignmentSummary">Plane normal → +Z · Plane offset on Z → 0 · Composed from current state</div>
+
+              <div class="alignment-adjustments">
+                <button class="alignment-adjust-button" id="flipLevelNormal" type="button" aria-pressed="false">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-level"></use></svg>
+                  <span>Flip Normal</span>
+                </button>
+                <button class="alignment-adjust-button" id="turnLevelDirection" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
+                  <span>Turn 90°</span>
+                </button>
+              </div>
+
+              <p class="alignment-hint">The preview adds the smallest rotation to the current model state, then moves only along the target plane normal. Apply keeps that result as the base for the next alignment; Cancel restores the previous transform.</p>
+            </div>
+
+            <div class="alignment-actions">
+              <button class="alignment-cancel-button" id="cancelLevel" type="button">Cancel</button>
+              <button class="alignment-apply-button" id="applyLevel" type="button" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                <span>Apply Alignment</span>
+              </button>
+            </div>
+          </div>
+        </section>
+        </aside>
+
+        <aside class="right-rail" aria-label="Mesh display and transforms">
+          <div class="display-tabs" role="group" aria-label="Display mode">
+            <button class="display-tab is-active" type="button" data-display-mode="mesh" aria-pressed="true">
+              <svg class="icon" aria-hidden="true"><use href="#icon-mesh"></use></svg>
+              <span>Mesh</span>
+            </button>
+            <button class="display-tab" type="button" data-display-mode="vertices" aria-pressed="false">
+              <svg class="icon" aria-hidden="true"><use href="#icon-vertices"></use></svg>
+              <span>Vertices</span>
+            </button>
+            <button class="display-tab" type="button" data-display-mode="edges" aria-pressed="false">
+              <svg class="icon" aria-hidden="true"><use href="#icon-edges"></use></svg>
+              <span>Edges</span>
+            </button>
+          </div>
+
+          <section class="transform-card" aria-labelledby="transformTitle">
+            <div class="card-heading">
+              <div>
+                <p class="eyebrow">Selected mesh</p>
+                <h1 id="transformTitle">Transform</h1>
+              </div>
+              <span class="selection-chip">Cube</span>
+            </div>
+
+            <section class="gizmo-controls" aria-labelledby="gizmoControlsTitle">
+              <div class="gizmo-heading-row">
+                <span id="gizmoControlsTitle">Transform Gizmo</span>
+                <small>Model center pivot</small>
+              </div>
+
+              <div class="gizmo-control-row">
+                <div class="gizmo-segment" role="group" aria-label="Gizmo operation">
+                  <button class="gizmo-option is-active" type="button" data-gizmo-mode="translate" aria-pressed="true">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-move"></use></svg>
+                    <span>Move</span>
+                  </button>
+                  <button class="gizmo-option" type="button" data-gizmo-mode="rotate" aria-pressed="false">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-rotate"></use></svg>
+                    <span>Rotate</span>
+                  </button>
+                </div>
+
+                <div class="gizmo-segment gizmo-space-segment" role="group" aria-label="Gizmo coordinate space">
+                  <button class="gizmo-option is-active" type="button" data-gizmo-space="world" aria-pressed="true">World</button>
+                  <button class="gizmo-option" type="button" data-gizmo-space="local" aria-pressed="false">Local</button>
+                </div>
+              </div>
+
+              <div class="gizmo-snap-grid">
+                <div class="gizmo-snap-control">
+                  <label class="gizmo-snap-heading">
+                    <input id="gridSnapEnabled" type="checkbox">
+                    <span class="gizmo-toggle-track" aria-hidden="true"><span></span></span>
+                    <span>Grid Snap</span>
+                  </label>
+                  <label class="gizmo-snap-value">
+                    <input id="gridSnapStep" type="number" value="1" min="0.000001" step="0.1" aria-label="Grid snap step in millimeters">
+                    <small>mm</small>
+                  </label>
+                </div>
+
+                <div class="gizmo-snap-control">
+                  <label class="gizmo-snap-heading">
+                    <input id="angleSnapEnabled" type="checkbox">
+                    <span class="gizmo-toggle-track" aria-hidden="true"><span></span></span>
+                    <span>Angle Snap</span>
+                  </label>
+                  <label class="gizmo-snap-value">
+                    <input id="angleSnapStep" type="number" value="15" min="0.1" max="180" step="1" aria-label="Rotation snap step in degrees">
+                    <small>deg</small>
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <div class="transform-group">
+              <div class="group-label-row">
+                <label>Position</label>
+                <span>mm</span>
+              </div>
+              <div class="field-row">
+                <label class="axis-field">
+                  <span>X</span>
+                  <input type="number" value="0.000" step="0.1" data-transform="position" data-axis="x" aria-label="Position X in millimeters">
+                </label>
+                <label class="axis-field">
+                  <span>Y</span>
+                  <input type="number" value="0.000" step="0.1" data-transform="position" data-axis="y" aria-label="Position Y in millimeters">
+                </label>
+                <label class="axis-field">
+                  <span>Z</span>
+                  <input type="number" value="0.000" step="0.1" data-transform="position" data-axis="z" aria-label="Position Z in millimeters">
+                </label>
+              </div>
+            </div>
+
+            <div class="transform-group">
+              <div class="group-label-row">
+                <label>Rotation</label>
+                <span>deg</span>
+              </div>
+              <div class="field-row">
+                <label class="axis-field">
+                  <span>X</span>
+                  <input type="number" value="0.00" step="1" data-transform="rotation" data-axis="x" aria-label="Rotation X in degrees">
+                </label>
+                <label class="axis-field">
+                  <span>Y</span>
+                  <input type="number" value="0.00" step="1" data-transform="rotation" data-axis="y" aria-label="Rotation Y in degrees">
+                </label>
+                <label class="axis-field">
+                  <span>Z</span>
+                  <input type="number" value="0.00" step="1" data-transform="rotation" data-axis="z" aria-label="Rotation Z in degrees">
+                </label>
+              </div>
+            </div>
+
+            <div class="transform-group scale-group">
+              <div class="group-label-row">
+                <label>Scale</label>
+                <button class="link-button is-linked" id="linkScaleButton" type="button" aria-label="Unlink scale axes" aria-pressed="true">
+                  <svg class="icon link-icon" aria-hidden="true"><use href="#icon-link"></use></svg>
+                  <svg class="icon unlink-icon" aria-hidden="true"><use href="#icon-unlink"></use></svg>
+                </button>
+              </div>
+              <div class="field-row">
+                <label class="axis-field">
+                  <span>X</span>
+                  <input type="number" value="1.000" min="0.05" step="0.05" data-transform="scale" data-axis="x" aria-label="Scale X">
+                </label>
+                <label class="axis-field">
+                  <span>Y</span>
+                  <input type="number" value="1.000" min="0.05" step="0.05" data-transform="scale" data-axis="y" aria-label="Scale Y">
+                </label>
+                <label class="axis-field">
+                  <span>Z</span>
+                  <input type="number" value="1.000" min="0.05" step="0.05" data-transform="scale" data-axis="z" aria-label="Scale Z">
+                </label>
+              </div>
+            </div>
+
+            <button class="primary-button" id="centerButton" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#icon-focus"></use></svg>
+              <span>Center to Origin</span>
+            </button>
+          </section>
+
+          <section class="history-panel" id="historyPanel" aria-labelledby="historyPanelTitle">
+            <button class="history-panel-toggle" id="historyPanelToggle" type="button" aria-expanded="true" aria-controls="historyPanelBody">
+              <span class="history-panel-heading">
+                <svg class="icon" aria-hidden="true"><use href="#icon-history"></use></svg>
+                <span>
+                  <small>Document states</small>
+                  <strong id="historyPanelTitle">Transform History</strong>
+                </span>
+              </span>
+              <span class="history-panel-meta">
+                <span id="historyPosition">0 / 0</span>
+                <svg class="icon history-panel-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+              </span>
+            </button>
+            <div class="history-panel-body" id="historyPanelBody">
+              <div class="history-list" id="historyList" role="listbox" aria-label="Transform history states"></div>
+              <p class="history-panel-note">Choose any state to restore the model and its planes. A new edit replaces later states.</p>
+            </div>
+          </section>
+        </aside>
+
+        <div class="view-toolbar" role="toolbar" aria-label="Viewport controls">
+          <button class="view-button" type="button" data-view-help="orbit" aria-label="Orbit with the middle mouse button">
+            <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
+          </button>
+          <button class="view-button" type="button" data-view-help="pan" aria-label="Pan with the right mouse button">
+            <svg class="icon" aria-hidden="true"><use href="#icon-hand"></use></svg>
+          </button>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <button class="view-button" type="button" data-view-action="zoom-in" aria-label="Zoom in">
+            <svg class="icon" aria-hidden="true"><use href="#icon-zoom-in"></use></svg>
+          </button>
+          <button class="view-button" type="button" data-view-action="zoom-out" aria-label="Zoom out">
+            <svg class="icon" aria-hidden="true"><use href="#icon-zoom-out"></use></svg>
+          </button>
+          <button class="view-button" type="button" data-view-action="fit" aria-label="Fit model to view">
+            <svg class="icon" aria-hidden="true"><use href="#icon-fit"></use></svg>
+          </button>
+        </div>
+
+        <div class="axis-gizmo" aria-label="World axes">
+          <svg viewBox="0 0 96 96" aria-hidden="true">
+            <circle class="gizmo-origin" cx="29" cy="67" r="3"></circle>
+            <path class="gizmo-z" d="M29 67V23"></path>
+            <path class="gizmo-y" d="m29 67 33-20"></path>
+            <path class="gizmo-x" d="m29 67 37 17"></path>
+            <path class="gizmo-z-fill" d="m29 16-5 11h10Z"></path>
+            <path class="gizmo-y-fill" d="m69 43-12 1 6 9Z"></path>
+            <path class="gizmo-x-fill" d="m73 87-9-8-3 10Z"></path>
+            <text class="gizmo-z-text" x="22" y="14">Z</text>
+            <text class="gizmo-y-text" x="71" y="43">Y</text>
+            <text class="gizmo-x-text" x="77" y="94">X</text>
+          </svg>
+        </div>
+
+        <div class="shortcut-hint" aria-hidden="true">
+          <kbd>LMB</kbd>
+          <span>Gizmo / Select</span>
+          <kbd>MMB</kbd>
+          <span>Orbit</span>
+          <kbd>RMB</kbd>
+          <span>Pan</span>
+        </div>
+
+        <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+      </main>
+    </div>
+  </body>
+</html>
