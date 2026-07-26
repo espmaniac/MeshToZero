@@ -31,9 +31,9 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page-background: #303030;
+  --page-background: #484848;
   --workspace-background: #484848;
-  --canvas-background: #3d3d3d;
+  --canvas-background: #484848;
   --surface: rgba(78, 78, 78, 0.92);
   --surface-solid: #565656;
   --surface-muted: #606060;
