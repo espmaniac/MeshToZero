@@ -3013,10 +3013,10 @@ class ThreeViewport {
     }
 
     for (const grid of Object.values(this.originPlaneGrids)) {
-      grid.minor.material.color.set(darkTheme ? 0x686868 : 0xc8c8c8);
-      grid.major.material.color.set(darkTheme ? 0x858585 : 0xa9a9a9);
-      grid.minor.material.opacity = (darkTheme ? 0.42 : 0.58) * grid.opacityFactor;
-      grid.major.material.opacity = (darkTheme ? 0.58 : 0.72) * grid.opacityFactor;
+      grid.minor.material.color.set(darkTheme ? 0x686868 : 0x8f8e8a);
+      grid.major.material.color.set(darkTheme ? 0x858585 : 0x72716d);
+      grid.minor.material.opacity = (darkTheme ? 0.42 : 0.5) * grid.opacityFactor;
+      grid.major.material.opacity = (darkTheme ? 0.58 : 0.68) * grid.opacityFactor;
     }
     this.shadowMaterial.opacity = darkTheme ? 0.24 : 0.1;
     this.hemisphereLight.groundColor.set(darkTheme ? 0x5f5f5f : 0x858585);
@@ -3394,7 +3394,7 @@ function applyTheme(theme, persist = true) {
   const nextTheme = theme === "dark" ? "light" : "dark";
   themeToggle.setAttribute("aria-label", "Switch to " + nextTheme + " theme");
   document.querySelector('meta[name="theme-color"]').content =
-    theme === "dark" ? "#484848" : "#d4d4d4";
+    theme === "dark" ? "#484848" : "#a5a4a0";
   if (persist) localStorage.setItem("mesh-to-zero-theme", theme);
   viewport?.updateTheme();
 }
