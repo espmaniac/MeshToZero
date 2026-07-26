@@ -168,6 +168,14 @@ input:focus-visible {
   cursor: crosshair;
 }
 
+#viewportCanvas.is-plane-picking {
+  cursor: crosshair;
+}
+
+#viewportCanvas.is-plane-pick-hover {
+  cursor: pointer;
+}
+
 #viewportCanvas.is-gizmo-hover {
   cursor: grab;
 }
@@ -734,6 +742,34 @@ input:focus-visible {
 .alignment-adjust-button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
+}
+
+.alignment-pick-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 12px;
+  padding: 10px 11px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.alignment-pick-tip .icon {
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  color: var(--accent-strong);
+}
+
+.alignment-pick-tip strong {
+  display: block;
+  margin-bottom: 1px;
+  color: var(--text-primary);
+  font-size: 10px;
 }
 
 .alignment-fields {

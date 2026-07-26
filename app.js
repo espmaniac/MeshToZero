@@ -962,6 +962,14 @@ function formatCoordinate(value) {
   return value.toFixed(3);
 }
 
+function chooseAlignmentPlaneHit(sourceHits, targetHits) {
+  const sourceId = sourceHits[0]?.object?.userData?.alignmentPlaneId;
+  if (sourceId) return { kind: "source", id: sourceId };
+  const targetId = targetHits[0]?.object?.userData?.alignmentTargetId;
+  if (targetId) return { kind: "target", id: targetId };
+  return null;
+}
+
 class ThreeViewport {
   constructor(targetCanvas) {
     this.canvas = targetCanvas;
@@ -1017,7 +1025,7 @@ class ThreeViewport {
         }
         if (
           event.button === 0 &&
-          this.selectionConfig.enabled &&
+          (this.selectionConfig.enabled || this.alignmentPlanePicking.enabled) &&
           !this.transformControls.axis &&
           !this.transformControls.dragging
         ) {
@@ -1038,10 +1046,21 @@ class ThreeViewport {
         if (this.transformControls.dragging || this.transformControls.axis) return;
         if (!start || start.pointerId !== event.pointerId || event.button !== 0) return;
         if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) return;
-        this.pickConstructionReference(event);
+        if (this.alignmentPlanePicking.enabled) {
+          this.pickAlignmentPlane(event);
+        } else {
+          this.pickConstructionReference(event);
+        }
       },
       { capture: true },
     );
+    this.canvas.addEventListener("pointermove", (event) => {
+      if (!this.alignmentPlanePicking.enabled || event.buttons !== 0) return;
+      this.setAlignmentPlaneHover(this.getAlignmentPlaneHit(event));
+    });
+    this.canvas.addEventListener("pointerleave", () => {
+      this.setAlignmentPlaneHover(null);
+    });
     this.canvas.addEventListener("contextmenu", (event) => event.preventDefault());
     this.controls.addEventListener("start", () => {
       this.canvas.classList.add("is-dragging");
@@ -1121,33 +1140,53 @@ class ThreeViewport {
     return new THREE.Line(geometry, material);
   }
 
-  createOriginPlaneGrid(name, rotation, opacityFactor) {
+  createOriginPlaneGrid(name, targetId, rotation, opacityFactor) {
     const group = new THREE.Group();
     const minor = this.createGridLines(false);
     const major = this.createGridLines(true);
+    const pickMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const pickSurface = new THREE.Mesh(
+      new THREE.PlaneGeometry(GRID_LIMIT * 2, GRID_LIMIT * 2),
+      pickMaterial,
+    );
+    pickSurface.name = name + " alignment hit surface";
+    pickSurface.userData.alignmentTargetId = targetId;
+    minor.userData.alignmentTargetId = targetId;
+    major.userData.alignmentTargetId = targetId;
+    pickSurface.renderOrder = -2;
     minor.position.z = -0.004;
     major.position.z = -0.003;
     group.name = name;
     group.rotation.set(rotation.x, rotation.y, rotation.z);
-    group.add(minor, major);
+    group.add(pickSurface, minor, major);
+    group.userData.alignmentHitObjects = [pickSurface, minor, major];
     this.scene.add(group);
-    return { group, minor, major, opacityFactor };
+    return { group, minor, major, pickSurface, targetId, opacityFactor };
   }
 
   createGrid() {
     this.originPlaneGrids = {
       top: this.createOriginPlaneGrid(
         "Top origin plane (XY)",
+        "z",
         new THREE.Euler(0, 0, 0),
         1,
       ),
       front: this.createOriginPlaneGrid(
         "Front origin plane (XZ)",
+        "y",
         new THREE.Euler(Math.PI / 2, 0, 0),
         0.72,
       ),
       right: this.createOriginPlaneGrid(
         "Right origin plane (YZ)",
+        "x",
         new THREE.Euler(0, Math.PI / 2, 0),
         0.72,
       ),
@@ -1253,12 +1292,19 @@ class ThreeViewport {
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
     this.selectionConfig = { enabled: false, method: "three-points", max: 3 };
+    this.alignmentPlanePicking = {
+      enabled: false,
+      sourceId: null,
+      targetId: null,
+      hovered: null,
+    };
     this.selectionReferences = [];
     this.constructionPlanes = [];
     this.planeSequence = 0;
     this.onSelectionChange = null;
     this.onPlanesChange = null;
     this.onModelCenterChange = null;
+    this.onAlignmentPlanePick = null;
     this.boundsHelper = null;
     this.boundsHelperMode = null;
     this.renderModel = null;
@@ -1664,6 +1710,168 @@ class ThreeViewport {
     this.canvas.classList.toggle("is-selecting", this.selectionConfig.enabled);
   }
 
+  configureAlignmentPlanePicking(enabled, sourceId = null, targetId = null) {
+    const isEnabled = Boolean(enabled);
+    this.alignmentPlanePicking.enabled = isEnabled;
+    this.alignmentPlanePicking.sourceId = isEnabled ? sourceId : null;
+    this.alignmentPlanePicking.targetId = isEnabled ? targetId : null;
+    this.alignmentPlanePicking.hovered = null;
+    this.selectionPointerStart = null;
+    this.canvas.classList.toggle("is-plane-picking", isEnabled);
+    this.canvas.classList.remove("is-plane-pick-hover");
+    this.updateAlignmentPlaneVisuals();
+  }
+
+  setAlignmentPlaneSelection(sourceId, targetId) {
+    this.alignmentPlanePicking.sourceId = sourceId || null;
+    this.alignmentPlanePicking.targetId = targetId || null;
+    this.updateAlignmentPlaneVisuals();
+  }
+
+  setAlignmentPlaneHover(hit) {
+    const current = this.alignmentPlanePicking.hovered;
+    if (
+      (current?.kind || null) === (hit?.kind || null) &&
+      (current?.id || null) === (hit?.id || null)
+    ) {
+      return;
+    }
+    this.alignmentPlanePicking.hovered = hit;
+    this.canvas.classList.toggle(
+      "is-plane-pick-hover",
+      Boolean(this.alignmentPlanePicking.enabled && hit),
+    );
+    this.updateAlignmentPlaneVisuals();
+  }
+
+  setRaycasterFromPointerEvent(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    this.pointer.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    return true;
+  }
+
+  getAlignmentPlaneHit(event) {
+    if (!this.alignmentPlanePicking.enabled || !this.setRaycasterFromPointerEvent(event)) {
+      return null;
+    }
+
+    this.scene.updateMatrixWorld(true);
+    const worldScale = this.modelRoot.getWorldScale(new THREE.Vector3());
+    this.raycaster.params.Line.threshold = Math.max(
+      this.getConstructionVisualScale() *
+        Math.max(worldScale.x, worldScale.y, worldScale.z) *
+        0.012,
+      this.referenceScale * 0.02,
+    );
+    const sourceObjects = this.getModelAlignmentPlanes()
+      .filter((plane) => plane.visible && plane.object.visible)
+      .flatMap(
+        (plane) =>
+          plane.object.userData.alignmentHitObjects || [
+            plane.object.userData.alignmentHitSurface,
+          ],
+      )
+      .filter((object) => object?.visible);
+    const targetObjects = Object.values(this.originPlaneGrids)
+      .filter((grid) => grid.group.visible && grid.pickSurface.visible)
+      .flatMap(
+        (grid) => grid.group.userData.alignmentHitObjects || [grid.pickSurface],
+      )
+      .filter((object) => object?.visible);
+    return chooseAlignmentPlaneHit(
+      this.raycaster.intersectObjects(sourceObjects, false),
+      this.raycaster.intersectObjects(targetObjects, false),
+    );
+  }
+
+  pickAlignmentPlane(event) {
+    const hit = this.getAlignmentPlaneHit(event);
+    if (!hit) {
+      showToast("Click a visible model plane or a Top, Front, or Right origin grid.");
+      return;
+    }
+    this.setAlignmentPlaneHover(hit);
+    this.onAlignmentPlanePick?.(hit);
+  }
+
+  updateAlignmentPlaneVisuals() {
+    if (!this.originPlaneGrids || !this.alignmentPlanePicking) return;
+    const rootStyle = getComputedStyle(document.documentElement);
+    const value = (name) => rootStyle.getPropertyValue(name).trim();
+    const darkTheme = document.documentElement.dataset.theme === "dark";
+    const pickingEnabled = this.alignmentPlanePicking.enabled;
+    const hovered = pickingEnabled ? this.alignmentPlanePicking.hovered : null;
+
+    for (const plane of this.constructionPlanes) {
+      const materials = plane.object.userData.planeMaterials;
+      if (!materials) continue;
+      const isSelected =
+        pickingEnabled &&
+        plane.space === "model" &&
+        plane.id === this.alignmentPlanePicking.sourceId;
+      const isHovered =
+        hovered?.kind === "source" &&
+        hovered.id === plane.id;
+      materials.fillMaterial.opacity = isSelected
+        ? darkTheme
+          ? 0.34
+          : 0.28
+        : isHovered
+          ? darkTheme
+            ? 0.27
+            : 0.22
+          : darkTheme
+            ? 0.17
+            : 0.12;
+      materials.gridMaterial.opacity = isSelected
+        ? 1
+        : isHovered
+          ? 0.94
+          : darkTheme
+            ? 0.82
+            : 0.72;
+      materials.normalMaterial.opacity = isSelected || isHovered ? 1 : 0.95;
+    }
+
+    for (const grid of Object.values(this.originPlaneGrids)) {
+      const isSelected =
+        pickingEnabled && grid.targetId === this.alignmentPlanePicking.targetId;
+      const isHovered =
+        hovered?.kind === "target" &&
+        hovered.id === grid.targetId;
+      const emphasis = isSelected ? 1.46 : isHovered ? 1.25 : 1;
+      grid.minor.material.color.setStyle(
+        isSelected || isHovered
+          ? value("--accent")
+          : darkTheme
+            ? "#686868"
+            : "#8f8e8a",
+      );
+      grid.major.material.color.setStyle(
+        isSelected || isHovered
+          ? value("--accent")
+          : darkTheme
+            ? "#858585"
+            : "#72716d",
+      );
+      grid.minor.material.opacity = Math.min(
+        1,
+        (darkTheme ? 0.42 : 0.5) * grid.opacityFactor * emphasis,
+      );
+      grid.major.material.opacity = Math.min(
+        1,
+        (darkTheme ? 0.58 : 0.68) * grid.opacityFactor * emphasis,
+      );
+      grid.pickSurface.material.color.setStyle(value("--accent"));
+      grid.pickSurface.material.opacity = 0;
+    }
+  }
+
   notifySelectionChange() {
     this.onSelectionChange?.(this.selectionReferences.map((reference) => ({ ...reference })));
   }
@@ -1874,12 +2082,7 @@ class ThreeViewport {
       return;
     }
 
-    const rect = this.canvas.getBoundingClientRect();
-    this.pointer.set(
-      ((event.clientX - rect.left) / rect.width) * 2 - 1,
-      -((event.clientY - rect.top) / rect.height) * 2 + 1,
-    );
-    this.raycaster.setFromCamera(this.pointer, this.camera);
+    if (!this.setRaycasterFromPointerEvent(event)) return;
     this.modelRoot.updateMatrixWorld(true);
     const worldScale = this.modelRoot.getWorldScale(new THREE.Vector3());
     this.raycaster.params.Points.threshold =
@@ -2012,6 +2215,7 @@ class ThreeViewport {
       depthWrite: false,
     });
     const fill = new THREE.Mesh(new THREE.PlaneGeometry(size, size), fillMaterial);
+    fill.userData.alignmentPlaneId = plane.id;
     fill.renderOrder = 4;
     group.add(fill);
 
@@ -2046,6 +2250,7 @@ class ThreeViewport {
       depthWrite: false,
     });
     const grid = new THREE.LineSegments(gridGeometry, gridMaterial);
+    grid.userData.alignmentPlaneId = plane.id;
     grid.renderOrder = 6;
     group.add(grid);
 
@@ -2061,6 +2266,7 @@ class ThreeViewport {
       depthWrite: false,
     });
     const normalLine = new THREE.Line(normalGeometry, normalMaterial);
+    normalLine.userData.alignmentPlaneId = plane.id;
     normalLine.renderOrder = 7;
     group.add(normalLine);
 
@@ -2069,6 +2275,7 @@ class ThreeViewport {
       new THREE.SphereGeometry(size * 0.018, 14, 10),
       centerMaterial,
     );
+    center.userData.alignmentPlaneId = plane.id;
     center.renderOrder = 8;
     group.add(center);
 
@@ -2080,6 +2287,8 @@ class ThreeViewport {
     );
     group.position.copy(plane.origin);
     group.quaternion.setFromRotationMatrix(rotationMatrix);
+    group.userData.alignmentHitSurface = fill;
+    group.userData.alignmentHitObjects = [fill, grid, normalLine, center];
     group.userData.planeMaterials = { fillMaterial, gridMaterial, normalMaterial };
     return group;
   }
@@ -2125,6 +2334,7 @@ class ThreeViewport {
     const parent = space === "model" ? this.constructionModelGroup : this.constructionWorldGroup;
     parent.add(plane.object);
     this.constructionPlanes.push(plane);
+    this.updateAlignmentPlaneVisuals();
     if (notify) this.notifyPlanesChange();
     return plane;
   }
@@ -2134,6 +2344,15 @@ class ThreeViewport {
     if (!plane) return;
     plane.visible = visible;
     plane.object.visible = visible;
+    if (
+      !visible &&
+      this.alignmentPlanePicking.hovered?.kind === "source" &&
+      this.alignmentPlanePicking.hovered.id === id
+    ) {
+      this.setAlignmentPlaneHover(null);
+    } else {
+      this.updateAlignmentPlaneVisuals();
+    }
     this.notifyPlanesChange();
   }
 
@@ -2142,6 +2361,14 @@ class ThreeViewport {
     if (index < 0) return;
     const [plane] = this.constructionPlanes.splice(index, 1);
     this.disposeObject3D(plane.object);
+    if (
+      this.alignmentPlanePicking.hovered?.kind === "source" &&
+      this.alignmentPlanePicking.hovered.id === id
+    ) {
+      this.setAlignmentPlaneHover(null);
+    } else {
+      this.updateAlignmentPlaneVisuals();
+    }
     if (notify) this.notifyPlanesChange();
   }
 
@@ -2149,6 +2376,8 @@ class ThreeViewport {
     for (const plane of this.constructionPlanes) this.disposeObject3D(plane.object);
     this.constructionPlanes = [];
     this.clearBoundsHelper();
+    this.setAlignmentPlaneHover(null);
+    this.updateAlignmentPlaneVisuals();
     this.notifyPlanesChange();
   }
 
@@ -2156,6 +2385,7 @@ class ThreeViewport {
     for (const plane of this.constructionPlanes) this.disposeObject3D(plane.object);
     this.constructionPlanes = [];
     this.clearBoundsHelper();
+    this.setAlignmentPlaneHover(null);
 
     for (const definition of definitions) {
       this.createConstructionPlane(
@@ -2931,6 +3161,15 @@ class ThreeViewport {
     if (!grid) return;
     grid.group.visible = visible;
     if (plane === "top") this.modelShadow.visible = visible;
+    if (
+      !visible &&
+      this.alignmentPlanePicking.hovered?.kind === "target" &&
+      this.alignmentPlanePicking.hovered.id === grid.targetId
+    ) {
+      this.setAlignmentPlaneHover(null);
+    } else {
+      this.updateAlignmentPlaneVisuals();
+    }
   }
 
   setDisplayMode(mode) {
@@ -3012,25 +3251,14 @@ class ThreeViewport {
       }
     }
 
-    for (const grid of Object.values(this.originPlaneGrids)) {
-      grid.minor.material.color.set(darkTheme ? 0x686868 : 0x8f8e8a);
-      grid.major.material.color.set(darkTheme ? 0x858585 : 0x72716d);
-      grid.minor.material.opacity = (darkTheme ? 0.42 : 0.5) * grid.opacityFactor;
-      grid.major.material.opacity = (darkTheme ? 0.58 : 0.68) * grid.opacityFactor;
-    }
     this.shadowMaterial.opacity = darkTheme ? 0.24 : 0.1;
     this.hemisphereLight.groundColor.set(darkTheme ? 0x5f5f5f : 0x858585);
     this.originMaterial.color.set(0xffffff);
     this.modelCenterCoreMaterial.color.setStyle(value("--accent"));
     this.modelCenterHaloMaterial.color.set(darkTheme ? 0xf5f5f5 : 0x252525);
 
-    for (const plane of this.constructionPlanes) {
-      const materials = plane.object.userData.planeMaterials;
-      if (!materials) continue;
-      materials.fillMaterial.opacity = darkTheme ? 0.17 : 0.12;
-      materials.gridMaterial.opacity = darkTheme ? 0.82 : 0.72;
-    }
     if (this.boundsHelper) this.boundsHelper.material.color.setStyle(value("--accent"));
+    this.updateAlignmentPlaneVisuals();
   }
 
   render() {
@@ -4225,6 +4453,7 @@ function closeRotationWorkbench(restore) {
 
 function closeLevelWorkbench(restore) {
   levelWorkbench.hidden = true;
+  viewport?.configureAlignmentPlanePicking(false);
   endAlignmentPreview("manual", restore);
   updateLeftRailWorkbench();
   updateTransformGizmoVisibility();
@@ -4381,6 +4610,10 @@ function updateLevelAlignmentSummary() {
 function previewLevelAlignment() {
   if (levelWorkbench.hidden || !levelSourcePlane.value || !viewport) return;
   try {
+    viewport.setAlignmentPlaneSelection(
+      levelSourcePlane.value,
+      levelTargetPlane.value,
+    );
     const baseTransform = alignmentPreviewSession
       ? {
           position: alignmentPreviewSession.originalPosition,
@@ -4422,7 +4655,44 @@ function populateAlignmentPlaneReferences() {
   levelEmptyState.hidden = hasPlanes;
   levelControls.hidden = !hasPlanes;
   applyLevelButton.disabled = !hasPlanes;
-  if (hasPlanes && !levelWorkbench.hidden) previewLevelAlignment();
+  if (!levelWorkbench.hidden) {
+    viewport?.configureAlignmentPlanePicking(
+      hasPlanes,
+      hasPlanes ? levelSourcePlane.value : null,
+      hasPlanes ? levelTargetPlane.value : null,
+    );
+    if (hasPlanes) previewLevelAlignment();
+  }
+}
+
+function resetLevelSourceAdjustments() {
+  levelNormalFlipped = false;
+  levelQuarterTurns = 0;
+  flipLevelNormalButton.setAttribute("aria-pressed", "false");
+}
+
+function handleAlignmentPlanePick(hit) {
+  if (!viewport || levelWorkbench.hidden || levelControls.hidden) return;
+
+  if (hit.kind === "source") {
+    const option = [...levelSourcePlane.options].find(
+      (candidate) => candidate.value === hit.id,
+    );
+    if (!option) return;
+    if (levelSourcePlane.value !== hit.id) resetLevelSourceAdjustments();
+    levelSourcePlane.value = hit.id;
+    previewLevelAlignment();
+    showToast(option.textContent + " selected as the model reference.");
+    return;
+  }
+
+  if (hit.kind === "target" && ALIGNMENT_TARGETS[hit.id]) {
+    const targetChanged = levelTargetPlane.value !== hit.id;
+    levelTargetPlane.value = hit.id;
+    if (targetChanged) levelQuarterTurns = 0;
+    previewLevelAlignment();
+    showToast(ALIGNMENT_TARGETS[hit.id].name + " selected as the world target.");
+  }
 }
 
 function openLevelWorkbench() {
@@ -4462,7 +4732,10 @@ closeRotationWorkbenchButton.addEventListener("click", () => {
   clearActiveToolSection();
 });
 
-levelSourcePlane.addEventListener("change", previewLevelAlignment);
+levelSourcePlane.addEventListener("change", () => {
+  resetLevelSourceAdjustments();
+  previewLevelAlignment();
+});
 levelTargetPlane.addEventListener("change", () => {
   levelQuarterTurns = 0;
   previewLevelAlignment();
@@ -4501,6 +4774,7 @@ if (viewport) {
   viewport.onSelectionChange = handleConstructionSelectionChange;
   viewport.onPlanesChange = renderCreatedPlanes;
   viewport.onModelCenterChange = updateModelCenterUi;
+  viewport.onAlignmentPlanePick = handleAlignmentPlanePick;
 }
 populatePlaneReferences();
 renderCreatedPlanes(viewport?.constructionPlanes || []);
