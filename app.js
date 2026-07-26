@@ -3622,7 +3622,7 @@ function applyTheme(theme, persist = true) {
   const nextTheme = theme === "dark" ? "light" : "dark";
   themeToggle.setAttribute("aria-label", "Switch to " + nextTheme + " theme");
   document.querySelector('meta[name="theme-color"]').content =
-    theme === "dark" ? "#484848" : "#a5a4a0";
+    theme === "dark" ? "#484848" : "#b3b3b3";
   if (persist) localStorage.setItem("mesh-to-zero-theme", theme);
   viewport?.updateTheme();
 }

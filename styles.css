@@ -1,8 +1,8 @@
 :root {
   color-scheme: light;
-  --page-background: #a5a4a0;
-  --workspace-background: #a5a4a0;
-  --canvas-background: #a5a4a0;
+  --page-background: #b3b3b3;
+  --workspace-background: #b3b3b3;
+  --canvas-background: #b3b3b3;
   --surface: rgba(238, 238, 238, 0.9);
   --surface-solid: #eeeeee;
   --surface-muted: #dedede;
@@ -26,7 +26,7 @@
   --cube-dark: #8c8c8c;
   --cube-edge: rgba(48, 48, 48, 0.62);
   --focus-ring: rgba(72, 72, 72, 0.34);
-  --drop-overlay: rgba(165, 164, 160, 0.92);
+  --drop-overlay: rgba(179, 179, 179, 0.92);
 }
 
 :root[data-theme="dark"] {
