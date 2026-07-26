@@ -1,8 +1,8 @@
 :root {
   color-scheme: light;
-  --page-background: #a5a4a0;
-  --workspace-background: #a5a4a0;
-  --canvas-background: #a5a4a0;
+  --page-background: #b3b3b3;
+  --workspace-background: #b3b3b3;
+  --canvas-background: #b3b3b3;
   --surface: rgba(238, 238, 238, 0.9);
   --surface-solid: #eeeeee;
   --surface-muted: #dedede;
@@ -26,7 +26,7 @@
   --cube-dark: #8c8c8c;
   --cube-edge: rgba(48, 48, 48, 0.62);
   --focus-ring: rgba(72, 72, 72, 0.34);
-  --drop-overlay: rgba(165, 164, 160, 0.92);
+  --drop-overlay: rgba(179, 179, 179, 0.92);
 }
 
 :root[data-theme="dark"] {
@@ -166,6 +166,14 @@ input:focus-visible {
 
 #viewportCanvas.is-selecting {
   cursor: crosshair;
+}
+
+#viewportCanvas.is-plane-picking {
+  cursor: crosshair;
+}
+
+#viewportCanvas.is-plane-pick-hover {
+  cursor: pointer;
 }
 
 #viewportCanvas.is-gizmo-hover {
@@ -734,6 +742,34 @@ input:focus-visible {
 .alignment-adjust-button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
+}
+
+.alignment-pick-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 12px;
+  padding: 10px 11px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.alignment-pick-tip .icon {
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  color: var(--accent-strong);
+}
+
+.alignment-pick-tip strong {
+  display: block;
+  margin-bottom: 1px;
+  color: var(--text-primary);
+  font-size: 10px;
 }
 
 .alignment-fields {
