@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8">
@@ -150,11 +150,15 @@
       <symbol id="icon-plus" viewBox="0 0 24 24">
         <path d="M12 5v14M5 12h14"/>
       </symbol>
+      <symbol id="icon-select" viewBox="0 0 24 24">
+        <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>
+        <path d="m10 9 8 3-4 2-2 4-2-9Z"/>
+      </symbol>
     </svg>
 
     <div class="app-shell">
       <main class="workspace" aria-label="3D mesh alignment workspace">
-        <canvas id="viewportCanvas" aria-label="Interactive 3D preview. Left-drag the transform gizmo, middle-drag to orbit, right-drag to pan, or left-click model references and visible planes while their tools are open."></canvas>
+        <canvas id="viewportCanvas" role="application" aria-label="Interactive 3D preview. Left-drag the transform gizmo, middle-drag to orbit, right-drag to pan, or left-click model references and visible planes while their tools are open."></canvas>
 
         <div class="drop-overlay" id="dropOverlay" role="status" aria-live="polite" aria-hidden="true">
           <div class="drop-card">
@@ -167,10 +171,52 @@
         </div>
 
         <header class="topbar">
-          <a class="brand" href="#" aria-label="MeshToZero home">
-            <img src="favicon.svg" alt="" width="64" height="48">
-            <span>MeshToZero</span>
-          </a>
+          <div class="topbar-start">
+            <a class="brand" href="#" aria-label="MeshToZero home">
+              <img src="favicon.svg" alt="" width="64" height="48">
+              <span>MeshToZero</span>
+            </a>
+
+            <nav class="cad-menu-bar" aria-label="Application menu">
+              <details class="cad-menu">
+                <summary>File</summary>
+                <div class="cad-menu-popover">
+                  <button id="menuImportButton" type="button" data-cad-command="import">
+                    <span>Import Model</span><kbd>Ctrl+O</kbd>
+                  </button>
+                  <button id="menuExportButton" type="button" data-cad-command="export">
+                    <span>Export Model</span><kbd>Ctrl+E</kbd>
+                  </button>
+                  <button type="button" data-cad-command="clear">
+                    <span>Clear Model</span>
+                  </button>
+                </div>
+              </details>
+              <details class="cad-menu">
+                <summary>Edit</summary>
+                <div class="cad-menu-popover">
+                  <button id="menuUndoButton" type="button" data-cad-command="undo">
+                    <span>Undo</span><kbd>Ctrl+Z</kbd>
+                  </button>
+                  <button id="menuRedoButton" type="button" data-cad-command="redo">
+                    <span>Redo</span><kbd>Ctrl+Shift+Z</kbd>
+                  </button>
+                </div>
+              </details>
+              <details class="cad-menu">
+                <summary>View</summary>
+                <div class="cad-menu-popover">
+                  <button type="button" data-cad-command="fit">
+                    <span>Fit Model</span><kbd>F</kbd>
+                  </button>
+                  <button type="button" data-cad-command="mesh"><span>Mesh</span><kbd>1</kbd></button>
+                  <button type="button" data-cad-command="vertices"><span>Vertices</span><kbd>2</kbd></button>
+                  <button type="button" data-cad-command="edges"><span>Edges</span><kbd>3</kbd></button>
+                  <button type="button" data-cad-command="theme"><span>Switch Theme</span></button>
+                </div>
+              </details>
+            </nav>
+          </div>
 
           <div class="header-actions">
             <div class="history-actions" role="group" aria-label="Edit history">
@@ -205,6 +251,11 @@
 
         <aside class="left-rail" aria-label="Model tools">
           <nav class="tool-panel" id="toolPanel" aria-label="Model tools">
+            <button class="rail-button select-tool-button" type="button" data-view-help="selection">
+              <svg class="icon" aria-hidden="true"><use href="#icon-select"></use></svg>
+              <span>Select</span>
+            </button>
+            <div class="tool-gizmo-slot" id="toolGizmoSlot"></div>
             <button class="rail-button" type="button" data-section="rotation" aria-pressed="false" aria-controls="rotationWorkbench">
               <svg class="icon" aria-hidden="true"><use href="#icon-cube"></use></svg>
               <span>Rotate to Axes</span>
@@ -226,6 +277,45 @@
               <span>Create Plane</span>
             </button>
           </nav>
+
+          <section class="browser-panel" aria-labelledby="browserTitle">
+            <header class="browser-header">
+              <h2 id="browserTitle">Browser</h2>
+            </header>
+            <div class="browser-tree">
+              <div class="browser-model-row">
+                <svg class="icon" aria-hidden="true"><use href="#icon-cube"></use></svg>
+                <span>
+                  <strong id="browserModelName">Demo Model</strong>
+                  <small>Selected mesh</small>
+                </span>
+              </div>
+
+              <section class="browser-group" aria-labelledby="browserOriginTitle">
+                <h3 id="browserOriginTitle">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-focus"></use></svg>
+                  <span>Origin</span>
+                </h3>
+                <div class="browser-slot" id="browserOriginSlot"></div>
+              </section>
+
+              <section class="browser-group" aria-labelledby="browserPlanesTitle">
+                <h3 id="browserPlanesTitle">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg>
+                  <span>Construction Planes</span>
+                </h3>
+                <div class="browser-slot" id="browserPlaneSlot"></div>
+              </section>
+
+              <section class="browser-group browser-history-group" aria-labelledby="browserHistoryTitle">
+                <h3 id="browserHistoryTitle">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-history"></use></svg>
+                  <span>Transform History</span>
+                </h3>
+                <div class="browser-slot" id="browserHistorySlot"></div>
+              </section>
+            </div>
+          </section>
 
           <section class="plane-workbench" id="planeWorkbench" aria-labelledby="planeWorkbenchTitle" hidden>
             <header class="workbench-header">
@@ -555,7 +645,18 @@
         </section>
         </aside>
 
-        <aside class="right-rail" aria-label="Mesh display and transforms">
+        <div class="viewport-display-slot" id="viewportDisplaySlot"></div>
+
+        <aside class="right-rail" aria-label="Tool settings and transforms">
+          <section class="inspector-panel" aria-label="Active tool settings">
+            <div class="inspector-empty" id="inspectorEmpty">
+              <svg class="icon" aria-hidden="true"><use href="#icon-select"></use></svg>
+              <strong>No active operation</strong>
+              <span>Choose an alignment or construction tool from the left toolbar.</span>
+            </div>
+            <div class="inspector-workbench-slot" id="inspectorWorkbenchSlot"></div>
+          </section>
+
           <div class="display-tabs" role="group" aria-label="Display mode">
             <button class="display-tab is-active" type="button" data-display-mode="mesh" aria-pressed="true">
               <svg class="icon" aria-hidden="true"><use href="#icon-mesh"></use></svg>
@@ -724,6 +825,21 @@
           </section>
         </aside>
 
+        <footer class="cad-statusbar" role="group" aria-label="Coordinate space and snapping">
+          <div class="status-space-slot" id="statusSpaceSlot"></div>
+          <div class="status-snap-slot" id="statusSnapSlot"></div>
+          <div class="status-snap-modes" role="group" aria-label="Available snap references">
+            <span>SNAP</span>
+            <span class="is-active">Grid</span>
+            <span>Point</span>
+            <span>Center</span>
+            <span>Face</span>
+            <span>Edge</span>
+          </div>
+          <div class="status-help-slot" id="statusHelpSlot"></div>
+          <output class="status-position" id="statusPosition" aria-label="Model position">X 0.000 · Y 0.000 · Z 0.000 mm</output>
+        </footer>
+
         <div class="view-toolbar" role="toolbar" aria-label="Viewport controls">
           <button class="view-button" type="button" data-view-help="orbit" aria-label="Orbit with the middle mouse button">
             <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
@@ -743,7 +859,7 @@
           </button>
         </div>
 
-        <div class="axis-gizmo" aria-label="World axes">
+        <div class="axis-gizmo" role="img" aria-label="World axes">
           <svg viewBox="0 0 96 96" aria-hidden="true">
             <circle class="gizmo-origin" cx="29" cy="67" r="3"></circle>
             <path class="gizmo-z" d="M29 67V23"></path>

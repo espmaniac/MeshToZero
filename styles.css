@@ -2684,3 +2684,1253 @@ input:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* CAD workspace layout */
+:root {
+  --cad-topbar-height: 48px;
+  --cad-statusbar-height: 40px;
+  --cad-tool-width: 78px;
+  --cad-browser-width: 272px;
+  --cad-left-width: calc(var(--cad-tool-width) + var(--cad-browser-width));
+  --cad-inspector-width: 338px;
+  --cad-chrome: #d7d7d7;
+  --cad-panel: #dedede;
+  --cad-panel-raised: #e8e8e8;
+  --cad-panel-deep: #cccccc;
+  --cad-line: rgba(25, 25, 25, 0.24);
+  --cad-line-soft: rgba(25, 25, 25, 0.13);
+  --cad-accent: #087fae;
+  --surface: var(--cad-panel);
+  --surface-solid: var(--cad-panel-raised);
+  --surface-muted: var(--cad-panel-deep);
+  --surface-hover: #c5c5c5;
+  --border: var(--cad-line-soft);
+  --border-strong: var(--cad-line);
+  --accent: var(--cad-accent);
+  --accent-hover: #056d96;
+  --accent-soft: rgba(8, 127, 174, 0.16);
+  --accent-soft-strong: rgba(8, 127, 174, 0.38);
+  --accent-strong: #035f82;
+  --focus-ring: rgba(8, 127, 174, 0.4);
+}
+
+:root[data-theme="dark"] {
+  --cad-chrome: #202020;
+  --cad-panel: #292929;
+  --cad-panel-raised: #323232;
+  --cad-panel-deep: #242424;
+  --cad-line: rgba(255, 255, 255, 0.2);
+  --cad-line-soft: rgba(255, 255, 255, 0.1);
+  --cad-accent: #2aaee6;
+  --surface: var(--cad-panel);
+  --surface-solid: var(--cad-panel-raised);
+  --surface-muted: var(--cad-panel-deep);
+  --surface-hover: #383838;
+  --border: var(--cad-line-soft);
+  --border-strong: var(--cad-line);
+  --accent: var(--cad-accent);
+  --accent-hover: #42bdf1;
+  --accent-soft: rgba(42, 174, 230, 0.16);
+  --accent-soft-strong: rgba(42, 174, 230, 0.42);
+  --accent-strong: #67c9f2;
+  --accent-contrast: #07151b;
+  --focus-ring: rgba(42, 174, 230, 0.42);
+}
+
+*,
+*::before,
+*::after {
+  box-shadow: none !important;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  padding: 0;
+  font-size: 13px;
+}
+
+.app-shell,
+.workspace {
+  width: 100%;
+  min-height: 100svh;
+  height: 100svh;
+}
+
+.workspace {
+  border: 0;
+  border-radius: 0;
+  background: var(--canvas-background);
+}
+
+#viewportCanvas {
+  top: var(--cad-topbar-height);
+  right: var(--cad-inspector-width);
+  bottom: var(--cad-statusbar-height);
+  left: var(--cad-left-width);
+  width: auto;
+  height: auto;
+}
+
+.drop-overlay {
+  z-index: 60;
+  top: calc(var(--cad-topbar-height) + 10px);
+  right: calc(var(--cad-inspector-width) + 10px);
+  bottom: calc(var(--cad-statusbar-height) + 10px);
+  left: calc(var(--cad-left-width) + 10px);
+  border-radius: 2px;
+  backdrop-filter: none;
+}
+
+.drop-card,
+.drop-icon {
+  border-radius: 2px;
+}
+
+.topbar {
+  z-index: 40;
+  height: var(--cad-topbar-height);
+  gap: 0;
+  padding: 0;
+  background: var(--cad-chrome);
+  border-bottom: 1px solid var(--cad-line);
+  pointer-events: auto;
+}
+
+.topbar-start,
+.header-actions {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: center;
+}
+
+.brand {
+  width: 150px;
+  height: 100%;
+  gap: 4px;
+  padding: 0 14px;
+  border-right: 1px solid var(--cad-line);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.brand img {
+  width: 27px;
+  height: 27px;
+}
+
+.cad-menu-bar {
+  display: flex;
+  height: 100%;
+  align-items: stretch;
+}
+
+.cad-menu {
+  position: relative;
+  height: 100%;
+}
+
+.cad-menu summary {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  padding: 0 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.cad-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.cad-menu summary:hover,
+.cad-menu[open] summary {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.cad-menu-popover {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 1px);
+  left: 0;
+  display: grid;
+  width: 224px;
+  padding: 4px;
+  background: var(--cad-panel);
+  border: 1px solid var(--cad-line);
+}
+
+.cad-menu-popover button {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.cad-menu-popover button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.cad-menu-popover button:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.cad-menu-popover kbd {
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 10px;
+}
+
+.header-actions {
+  gap: 5px;
+  padding: 0 8px;
+}
+
+.history-actions {
+  height: 34px;
+  padding: 0 7px;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--cad-line);
+  border-radius: 0;
+  backdrop-filter: none;
+}
+
+.history-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 2px;
+}
+
+.action-button,
+.theme-toggle {
+  height: 34px;
+  border-color: var(--cad-line);
+  border-radius: 2px;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.action-button {
+  min-width: 106px;
+  gap: 7px;
+  padding: 0 11px;
+  font-size: 12px;
+  font-weight: 580;
+}
+
+.theme-toggle {
+  width: 34px;
+}
+
+.action-button:not(:disabled):hover,
+.theme-toggle:hover,
+.primary-button:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  transform: none;
+}
+
+.action-button .icon,
+.theme-toggle .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.left-rail {
+  z-index: 25;
+  top: var(--cad-topbar-height);
+  bottom: var(--cad-statusbar-height);
+  left: 0;
+  display: grid;
+  width: var(--cad-left-width);
+  height: auto;
+  grid-template-columns: var(--cad-tool-width) var(--cad-browser-width);
+  gap: 0;
+  background: var(--cad-panel);
+  border-right: 1px solid var(--cad-line);
+}
+
+.left-rail.is-workbench-mode,
+.left-rail.has-active-workbench {
+  z-index: 25;
+  width: var(--cad-left-width);
+  height: auto;
+}
+
+.tool-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  grid-column: 1;
+  gap: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 5px 3px;
+  background: var(--cad-panel-deep);
+  border: 0;
+  border-right: 1px solid var(--cad-line);
+  border-radius: 0;
+  backdrop-filter: none;
+  scrollbar-width: thin;
+}
+
+.tool-panel[hidden] {
+  display: flex;
+}
+
+.rail-button {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 66px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 3px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 540;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.rail-button .icon {
+  width: 26px;
+  height: 26px;
+}
+
+.rail-button:hover,
+.rail-button.is-active {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.rail-button.is-active {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.select-tool-button {
+  order: 0;
+}
+
+.tool-gizmo-slot {
+  display: block;
+  order: 1;
+}
+
+#planeButton {
+  order: 2;
+}
+
+[data-section="level"] {
+  order: 3;
+}
+
+[data-section="rotation"] {
+  order: 4;
+}
+
+#layFlatButton {
+  order: 5;
+}
+
+#dropToBedButton {
+  order: 6;
+}
+
+.tool-gizmo-slot .gizmo-segment {
+  display: grid;
+  grid-template-columns: 1fr;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.tool-gizmo-slot .gizmo-option {
+  display: flex;
+  width: 100%;
+  min-height: 66px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 5px 3px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 540;
+}
+
+.tool-gizmo-slot .gizmo-option .icon {
+  width: 27px;
+  height: 27px;
+}
+
+.tool-gizmo-slot .gizmo-option:hover,
+.tool-gizmo-slot .gizmo-option.is-active {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.tool-gizmo-slot .gizmo-option.is-active {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.browser-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  grid-column: 2;
+  overflow: hidden;
+  background: var(--cad-panel);
+}
+
+.browser-header {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  padding: 0 13px;
+  border-bottom: 1px solid var(--cad-line);
+}
+
+.browser-header h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.browser-tree {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0 12px;
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.browser-model-row,
+.browser-group > h3 {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.browser-model-row {
+  min-height: 40px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--cad-line-soft);
+}
+
+.browser-model-row > .icon,
+.browser-group > h3 .icon {
+  width: 17px;
+  height: 17px;
+  color: var(--text-secondary);
+}
+
+.browser-model-row > span {
+  display: grid;
+  min-width: 0;
+}
+
+.browser-model-row strong,
+.browser-model-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-model-row strong {
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.browser-model-row small {
+  color: var(--text-tertiary);
+  font-size: 9px;
+}
+
+.browser-group {
+  border-bottom: 1px solid var(--cad-line-soft);
+}
+
+.browser-group > h3 {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 610;
+}
+
+.browser-slot {
+  min-width: 0;
+}
+
+.browser-slot > .origin-plane-section,
+.browser-slot > .created-section {
+  margin: 0;
+  padding: 0 8px 7px 27px;
+  border: 0;
+}
+
+#browserOriginSlot > .origin-plane-section > .workbench-label,
+#browserPlaneSlot .created-heading .workbench-label {
+  display: none;
+}
+
+#browserOriginSlot .origin-plane-list {
+  gap: 1px;
+  margin: 0;
+}
+
+#browserOriginSlot .origin-plane-toggle {
+  min-height: 32px;
+  padding: 3px 5px 3px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+}
+
+#browserOriginSlot .origin-plane-toggle:hover {
+  background: var(--surface-hover);
+}
+
+#browserOriginSlot .origin-plane-toggle strong {
+  font-size: 10px;
+}
+
+#browserOriginSlot .origin-plane-toggle small {
+  font-size: 8px;
+}
+
+#browserOriginSlot .toggle-track {
+  width: 26px;
+  height: 15px;
+  border-radius: 8px;
+}
+
+#browserOriginSlot .toggle-track span {
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+}
+
+#browserOriginSlot .origin-plane-toggle.is-active .toggle-track span {
+  transform: translateX(11px);
+}
+
+#browserPlaneSlot .created-heading {
+  min-height: 24px;
+  justify-content: flex-end;
+}
+
+#browserPlaneSlot .created-plane-list {
+  gap: 1px;
+  margin: 0;
+}
+
+#browserPlaneSlot .created-plane-row {
+  min-height: 34px;
+  padding: 3px 2px 3px 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+}
+
+#browserPlaneSlot .created-plane-row:hover {
+  background: var(--surface-hover);
+}
+
+#browserPlaneSlot .empty-planes {
+  margin: 0;
+  padding: 7px;
+  font-size: 9px;
+}
+
+#browserHistorySlot .history-panel {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+}
+
+#browserHistorySlot .history-panel-toggle {
+  min-height: 27px;
+  justify-content: flex-end;
+  padding: 0 9px;
+}
+
+#browserHistorySlot .history-panel-heading {
+  display: none;
+}
+
+#browserHistorySlot .history-panel-body {
+  border-top: 0;
+}
+
+#browserHistorySlot .history-list {
+  max-height: 210px;
+  padding: 2px 8px 8px 27px;
+}
+
+#browserHistorySlot .history-entry {
+  min-height: 34px;
+  grid-template-columns: 7px 22px minmax(0, 1fr);
+  gap: 6px;
+  padding: 3px 5px;
+  border-radius: 2px;
+}
+
+#browserHistorySlot .history-entry-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 2px;
+}
+
+#browserHistorySlot .history-panel-note {
+  display: none;
+}
+
+.viewport-display-slot {
+  position: absolute;
+  z-index: 18;
+  top: calc(var(--cad-topbar-height) + 8px);
+  left: calc(var(--cad-left-width) + 10px);
+}
+
+.viewport-display-slot .display-tabs {
+  width: 254px;
+  padding: 2px;
+  border-color: var(--cad-line);
+  border-radius: 2px;
+  background: var(--cad-panel);
+  backdrop-filter: none;
+}
+
+.viewport-display-slot .display-tab {
+  min-height: 30px;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: 1px;
+  font-size: 10px;
+}
+
+.viewport-display-slot .display-tab .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.right-rail {
+  z-index: 25;
+  top: var(--cad-topbar-height);
+  right: 0;
+  bottom: var(--cad-statusbar-height);
+  display: flex;
+  width: var(--cad-inspector-width);
+  max-height: none;
+  gap: 0;
+  overflow: hidden;
+  background: var(--cad-panel);
+  border-left: 1px solid var(--cad-line);
+}
+
+.inspector-panel {
+  display: flex;
+  min-height: 120px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  border-bottom: 1px solid var(--cad-line);
+}
+
+.inspector-empty {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  align-content: center;
+  justify-items: center;
+  gap: 7px;
+  padding: 24px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.inspector-empty[hidden] {
+  display: none;
+}
+
+.inspector-empty .icon {
+  width: 27px;
+  height: 27px;
+}
+
+.inspector-empty strong {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.inspector-empty span {
+  max-width: 210px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.inspector-workbench-slot {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.inspector-workbench-slot .plane-workbench,
+.inspector-workbench-slot .alignment-workbench {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: var(--cad-panel);
+  backdrop-filter: none;
+}
+
+.workbench-header {
+  min-height: 40px;
+  padding: 7px 11px;
+  background: var(--cad-panel-deep);
+  border-bottom-color: var(--cad-line);
+}
+
+.workbench-header h2 {
+  font-size: 13px;
+}
+
+.workbench-header .eyebrow {
+  font-size: 8px;
+}
+
+.icon-button {
+  width: 27px;
+  height: 27px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.workbench-scroll {
+  padding: 10px 12px 14px;
+}
+
+.right-rail .transform-card {
+  min-height: 0;
+  max-height: 42%;
+  flex: 0 1 360px;
+  overflow-y: auto;
+  padding: 11px 12px 13px;
+  background: var(--cad-panel);
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.right-rail.has-active-workbench .transform-card {
+  max-height: 38%;
+}
+
+.transform-card .gizmo-controls {
+  display: none;
+}
+
+.card-heading {
+  margin-bottom: 10px;
+}
+
+.card-heading h1 {
+  font-size: 14px;
+}
+
+.selection-chip {
+  padding: 3px 6px;
+  border-radius: 2px;
+  font-size: 9px;
+}
+
+.transform-group + .transform-group {
+  margin-top: 9px;
+}
+
+.group-label-row {
+  min-height: 17px;
+  margin-bottom: 4px;
+}
+
+.group-label-row label {
+  font-size: 10px;
+}
+
+.field-row {
+  gap: 5px;
+}
+
+.axis-field {
+  height: 31px;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 2px;
+}
+
+.axis-field input {
+  font-size: 10px;
+}
+
+.primary-button {
+  min-height: 36px;
+  margin-top: 11px;
+  border-radius: 2px;
+  font-size: 11px;
+}
+
+.cad-statusbar {
+  position: absolute;
+  z-index: 35;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  height: var(--cad-statusbar-height);
+  align-items: center;
+  gap: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  background: var(--cad-chrome);
+  border-top: 1px solid var(--cad-line);
+  color: var(--text-secondary);
+}
+
+.status-space-slot,
+.status-snap-slot,
+.status-snap-modes,
+.status-help-slot {
+  display: flex;
+  height: 28px;
+  align-items: center;
+  padding: 0 9px;
+  border-right: 1px solid var(--cad-line);
+}
+
+.status-space-slot {
+  padding-left: 0;
+}
+
+.status-space-slot .gizmo-segment {
+  display: grid;
+  width: 132px;
+  grid-template-columns: repeat(2, 1fr);
+  padding: 1px;
+  border-radius: 2px;
+}
+
+.status-space-slot .gizmo-option {
+  min-height: 24px;
+  border-radius: 1px;
+  font-size: 10px;
+}
+
+.status-snap-slot .gizmo-snap-grid {
+  display: flex;
+  gap: 7px;
+  margin: 0;
+}
+
+.status-snap-slot .gizmo-snap-control {
+  display: flex;
+  min-width: 142px;
+  height: 27px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 5px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.status-snap-slot .gizmo-snap-heading {
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.status-snap-slot .gizmo-toggle-track {
+  width: 25px;
+  height: 14px;
+}
+
+.status-snap-slot .gizmo-toggle-track > span {
+  width: 8px;
+  height: 8px;
+}
+
+.status-snap-slot .gizmo-snap-heading input:checked + .gizmo-toggle-track > span {
+  transform: translateX(11px);
+}
+
+.status-snap-slot .gizmo-snap-value {
+  width: 57px;
+  height: 24px;
+  padding: 0 5px;
+  border: 1px solid var(--cad-line);
+  border-radius: 2px;
+}
+
+.status-snap-modes {
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.status-snap-modes > span {
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.status-snap-modes > span:first-child {
+  color: var(--text-tertiary);
+}
+
+.status-snap-modes > span.is-active {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.status-help-slot {
+  min-width: 0;
+  flex: 1;
+  justify-content: center;
+}
+
+.status-help-slot .shortcut-hint {
+  position: static;
+  display: flex;
+  gap: 5px;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.status-help-slot .shortcut-hint kbd {
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.status-position {
+  min-width: 244px;
+  padding-left: 12px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.view-toolbar {
+  z-index: 18;
+  right: var(--cad-inspector-width);
+  bottom: calc(var(--cad-statusbar-height) + 12px);
+  left: var(--cad-left-width);
+  width: max-content;
+  height: 38px;
+  gap: 1px;
+  margin-inline: auto;
+  padding: 2px 4px;
+  border-radius: 2px;
+  background: var(--cad-panel);
+  backdrop-filter: none;
+  transform: none;
+}
+
+.view-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 1px;
+}
+
+.view-button .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.toolbar-divider {
+  height: 20px;
+}
+
+.axis-gizmo {
+  bottom: calc(var(--cad-statusbar-height) + 13px);
+  left: calc(var(--cad-left-width) + 18px);
+  width: 80px;
+  height: 80px;
+}
+
+.model-status {
+  z-index: 19;
+  top: calc(var(--cad-topbar-height) + 8px);
+  left: calc(var(--cad-left-width) + 276px);
+  height: 31px;
+  border-radius: 2px;
+  background: var(--cad-panel);
+  backdrop-filter: none;
+  transform: none;
+}
+
+.toast {
+  right: var(--cad-inspector-width);
+  bottom: calc(var(--cad-statusbar-height) + 62px);
+  left: var(--cad-left-width);
+  width: max-content;
+  margin-inline: auto;
+  border-radius: 2px;
+  transform: translateY(8px);
+}
+
+.toast.is-visible {
+  transform: translateY(0);
+}
+
+.plane-mode-button,
+.method-button,
+.workbench-field input,
+.workbench-field select,
+.unit-input,
+.reference-selection,
+.bounds-readout,
+.create-plane-button,
+.orientation-candidate,
+.alignment-status,
+.alignment-empty,
+.alignment-pick-tip,
+.alignment-summary,
+.alignment-adjust-button,
+.alignment-analyze-button,
+.alignment-apply-button,
+.alignment-cancel-button,
+.model-center-card,
+.model-center-symbol,
+.model-center-coordinates,
+.model-center-use,
+.text-button {
+  border-radius: 2px;
+}
+
+@media (max-width: 1400px) {
+  .status-snap-modes {
+    display: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  :root {
+    --cad-left-width: var(--cad-tool-width);
+    --cad-inspector-width: 320px;
+  }
+
+  .left-rail,
+  .left-rail.is-workbench-mode,
+  .left-rail.has-active-workbench {
+    width: var(--cad-tool-width);
+    grid-template-columns: var(--cad-tool-width);
+  }
+
+  .browser-panel {
+    display: none;
+  }
+
+  .status-help-slot {
+    display: none;
+  }
+}
+
+@media (max-width: 880px) {
+  :root {
+    --cad-tool-width: 64px;
+    --cad-inspector-width: 292px;
+  }
+
+  .brand {
+    width: 128px;
+    padding: 0 10px;
+    font-size: 15px;
+  }
+
+  .cad-menu summary {
+    padding: 0 9px;
+  }
+
+  .action-button {
+    width: 34px;
+    min-width: 34px;
+    padding: 0;
+  }
+
+  .action-button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .rail-button,
+  .tool-gizmo-slot .gizmo-option {
+    min-height: 60px;
+    font-size: 9px;
+  }
+
+  .status-snap-slot {
+    display: none;
+  }
+
+  .status-position {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  :root {
+    --cad-tool-width: 58px;
+    --cad-inspector-width: 0px;
+  }
+
+  .brand {
+    width: auto;
+    border-right: 0;
+  }
+
+  .brand span,
+  .cad-menu-bar,
+  .history-actions {
+    display: none;
+  }
+
+  .header-actions {
+    margin-left: auto;
+  }
+
+  #viewportCanvas {
+    right: 0;
+  }
+
+  .drop-overlay {
+    right: 10px;
+  }
+
+  .right-rail {
+    top: auto;
+    right: 0;
+    bottom: var(--cad-statusbar-height);
+    left: var(--cad-tool-width);
+    width: auto;
+    height: min(320px, 44svh);
+    border-top: 1px solid var(--cad-line);
+  }
+
+  .right-rail.has-active-workbench {
+    height: min(430px, 58svh);
+  }
+
+  .right-rail.has-active-workbench .transform-card {
+    display: none;
+  }
+
+  .right-rail:not(.has-active-workbench) .inspector-panel {
+    display: none;
+  }
+
+  .right-rail .transform-card {
+    max-height: none;
+    flex: 1;
+  }
+
+  .viewport-display-slot {
+    left: calc(var(--cad-tool-width) + 6px);
+  }
+
+  .viewport-display-slot .display-tabs {
+    width: 214px;
+  }
+
+  .viewport-display-slot .display-tab span {
+    display: none;
+  }
+
+  .model-status {
+    left: calc(var(--cad-tool-width) + 226px);
+    max-width: calc(100% - var(--cad-tool-width) - 236px);
+  }
+
+  .axis-gizmo {
+    left: calc(var(--cad-tool-width) + 9px);
+  }
+
+  .cad-statusbar {
+    padding: 0 5px;
+  }
+
+  .status-space-slot {
+    padding-right: 5px;
+  }
+
+  .status-space-slot .gizmo-segment {
+    width: 106px;
+  }
+
+  .status-position {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 9px;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 420px) {
+  .theme-toggle {
+    display: none;
+  }
+
+  .viewport-display-slot .display-tabs {
+    width: 150px;
+  }
+
+  .model-status {
+    display: none;
+  }
+
+  .status-position {
+    padding-left: 6px;
+  }
+}
