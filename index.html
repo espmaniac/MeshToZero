@@ -219,14 +219,6 @@
           </div>
 
           <div class="header-actions">
-            <div class="history-actions" role="group" aria-label="Edit history">
-              <button class="history-button" id="undoButton" type="button" aria-label="Nothing to undo" title="Nothing to undo" disabled>
-                <svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg>
-              </button>
-              <button class="history-button" id="redoButton" type="button" aria-label="Nothing to redo" title="Nothing to redo" disabled>
-                <svg class="icon" aria-hidden="true"><use href="#icon-redo"></use></svg>
-              </button>
-            </div>
             <button class="action-button" id="importButton" type="button">
               <svg class="icon" aria-hidden="true"><use href="#icon-import"></use></svg>
               <span>Import Model</span>
@@ -841,6 +833,15 @@
         </footer>
 
         <div class="view-toolbar" role="toolbar" aria-label="Viewport controls">
+          <div class="history-actions" role="group" aria-label="Edit history">
+            <button class="history-button" id="undoButton" type="button" aria-label="Nothing to undo" title="Nothing to undo" disabled>
+              <svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg>
+            </button>
+            <button class="history-button" id="redoButton" type="button" aria-label="Nothing to redo" title="Nothing to redo" disabled>
+              <svg class="icon" aria-hidden="true"><use href="#icon-redo"></use></svg>
+            </button>
+          </div>
+          <span class="toolbar-divider" aria-hidden="true"></span>
           <button class="view-button" type="button" data-view-help="orbit" aria-label="Orbit with the middle mouse button">
             <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
           </button>

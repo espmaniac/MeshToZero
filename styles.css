@@ -3669,10 +3669,24 @@ body {
   gap: 1px;
   margin-inline: auto;
   padding: 2px 4px;
-  border-radius: 2px;
+  border-radius: 32px;
   background: var(--cad-panel);
   backdrop-filter: none;
   transform: none;
+}
+
+.view-toolbar .history-actions {
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+}
+
+.view-toolbar .history-button {
+  width: 32px;
+  height: 32px;
 }
 
 .view-button {
@@ -3832,8 +3846,7 @@ body {
   }
 
   .brand span,
-  .cad-menu-bar,
-  .history-actions {
+  .cad-menu-bar {
     display: none;
   }
 
