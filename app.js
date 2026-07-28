@@ -3279,6 +3279,8 @@ try {
 const HISTORY_LIMIT = 100;
 const undoButton = document.querySelector("#undoButton");
 const redoButton = document.querySelector("#redoButton");
+const menuUndoButton = document.querySelector("#menuUndoButton");
+const menuRedoButton = document.querySelector("#menuRedoButton");
 const historyPanelToggle = document.querySelector("#historyPanelToggle");
 const historyPanelBody = document.querySelector("#historyPanelBody");
 const historyPosition = document.querySelector("#historyPosition");
@@ -3513,6 +3515,8 @@ function updateHistoryUi() {
   const canRedo = Boolean(redoLabel) && !historyLocked && !transformGizmoDragging;
   undoButton.disabled = !canUndo;
   redoButton.disabled = !canRedo;
+  menuUndoButton.disabled = !canUndo;
+  menuRedoButton.disabled = !canRedo;
   undoButton.title = canUndo ? "Undo " + undoLabel + " (Ctrl+Z)" : "Nothing to undo";
   redoButton.title = canRedo ? "Redo " + redoLabel + " (Ctrl+Y)" : "Nothing to redo";
   undoButton.setAttribute("aria-label", canUndo ? "Undo " + undoLabel : "Nothing to undo");
@@ -3640,7 +3644,39 @@ themePreference.addEventListener("change", (event) => {
 });
 
 const leftRail = document.querySelector(".left-rail");
+const rightRail = document.querySelector(".right-rail");
 const toolPanel = document.querySelector("#toolPanel");
+const inspectorEmpty = document.querySelector("#inspectorEmpty");
+const inspectorWorkbenchSlot = document.querySelector("#inspectorWorkbenchSlot");
+
+function mountCadWorkspacePanels() {
+  const moveTarget = (selector, targetSelector) => {
+    const element = document.querySelector(selector);
+    const target = document.querySelector(targetSelector);
+    if (element && target) target.append(element);
+  };
+
+  moveTarget(".origin-plane-section", "#browserOriginSlot");
+  moveTarget(".created-section", "#browserPlaneSlot");
+  moveTarget("#historyPanel", "#browserHistorySlot");
+  moveTarget(".display-tabs", "#viewportDisplaySlot");
+  moveTarget(
+    ".gizmo-control-row .gizmo-segment:not(.gizmo-space-segment)",
+    "#toolGizmoSlot",
+  );
+  moveTarget(".gizmo-space-segment", "#statusSpaceSlot");
+  moveTarget(".gizmo-snap-grid", "#statusSnapSlot");
+  moveTarget(".shortcut-hint", "#statusHelpSlot");
+
+  for (const workbench of document.querySelectorAll(
+    "#planeWorkbench, #layFlatWorkbench, #rotationWorkbench, #levelWorkbench",
+  )) {
+    inspectorWorkbenchSlot.append(workbench);
+  }
+}
+
+mountCadWorkspacePanels();
+
 const sectionButtons = [...document.querySelectorAll("[data-section]")];
 sectionButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -3691,6 +3727,7 @@ displayButtons.forEach((button) => {
 });
 
 const navigationHelp = {
+  selection: "Select: click model references or visible planes while a compatible tool is active.",
   orbit: "Orbit: hold the middle mouse button and drag.",
   pan: "Pan: hold the right mouse button and drag.",
 };
@@ -3708,6 +3745,42 @@ document.querySelectorAll("[data-view-action]").forEach((button) => {
     if (action === "zoom-out") viewport?.zoom("out");
     if (action === "fit") viewport?.fitView();
   });
+});
+
+function runCadCommand(command) {
+  if (command === "import") importButton.click();
+  if (command === "export") exportButton.click();
+  if (command === "clear") clearModelButton.click();
+  if (command === "undo") undoLastEdit();
+  if (command === "redo") redoLastEdit();
+  if (command === "fit") viewport?.fitView();
+  if (command === "mesh") selectDisplayMode("mesh");
+  if (command === "vertices") selectDisplayMode("vertices");
+  if (command === "edges") selectDisplayMode("edges");
+  if (command === "theme") document.querySelector("#themeToggle").click();
+}
+
+document.querySelectorAll("[data-cad-command]").forEach((button) => {
+  button.addEventListener("click", () => {
+    runCadCommand(button.dataset.cadCommand);
+    button.closest("details")?.removeAttribute("open");
+  });
+});
+
+document.querySelectorAll(".cad-menu").forEach((menu) => {
+  menu.addEventListener("toggle", () => {
+    if (!menu.open) return;
+    for (const sibling of document.querySelectorAll(".cad-menu[open]")) {
+      if (sibling !== menu) sibling.removeAttribute("open");
+    }
+  });
+});
+
+document.addEventListener("pointerdown", (event) => {
+  if (event.target instanceof Element && event.target.closest(".cad-menu")) return;
+  for (const menu of document.querySelectorAll(".cad-menu[open]")) {
+    menu.removeAttribute("open");
+  }
 });
 
 const PLANE_MODES = {
@@ -3961,9 +4034,13 @@ function updateLeftRailWorkbench() {
           ? "Align and level tools"
           : null;
   const isWorkbenchOpen = Boolean(activeLabel);
-  leftRail.classList.toggle("is-workbench-mode", isWorkbenchOpen);
-  leftRail.setAttribute("aria-label", activeLabel || "Model tools");
-  toolPanel.hidden = isWorkbenchOpen;
+  leftRail.classList.toggle("has-active-workbench", isWorkbenchOpen);
+  rightRail.classList.toggle("has-active-workbench", isWorkbenchOpen);
+  leftRail.setAttribute("aria-label", "Model tools and browser");
+  rightRail.setAttribute("aria-label", activeLabel || "Tool settings and transforms");
+  rightRail.dataset.activeTool = activeLabel || "";
+  inspectorEmpty.hidden = isWorkbenchOpen;
+  toolPanel.hidden = false;
 }
 
 function setPlaneWorkbenchOpen(isOpen) {
@@ -4782,6 +4859,7 @@ updatePlaneModeUi();
 updateModelCenterUi();
 
 const transformInputs = [...document.querySelectorAll("[data-transform]")];
+const statusPosition = document.querySelector("#statusPosition");
 const transformGizmoModeButtons = [...document.querySelectorAll("[data-gizmo-mode]")];
 const transformGizmoSpaceButtons = [...document.querySelectorAll("[data-gizmo-space]")];
 const gridSnapEnabledInput = document.querySelector("#gridSnapEnabled");
@@ -4805,6 +4883,14 @@ function writeTransformInputs() {
     const value = group === "rotation" ? THREE.MathUtils.radToDeg(rawValue) : rawValue;
     input.value = value.toFixed(group === "rotation" ? 2 : 3);
   }
+  statusPosition.textContent =
+    "X " +
+    state.model.position.x.toFixed(3) +
+    " · Y " +
+    state.model.position.y.toFixed(3) +
+    " · Z " +
+    state.model.position.z.toFixed(3) +
+    " mm";
 }
 
 function formatSnapStep(value) {
@@ -5028,9 +5114,12 @@ document.querySelector("#centerButton").addEventListener("click", centerModelToO
 const fileInput = document.querySelector("#fileInput");
 const importButton = document.querySelector("#importButton");
 const exportButton = document.querySelector("#exportButton");
+const menuImportButton = document.querySelector("#menuImportButton");
+const menuExportButton = document.querySelector("#menuExportButton");
 const clearModelButton = document.querySelector("#clearModelButton");
 const modelStatus = document.querySelector("#modelStatus");
 const modelName = document.querySelector("#modelName");
+const browserModelName = document.querySelector("#browserModelName");
 const selectionChip = document.querySelector(".selection-chip");
 const numberFormatter = new Intl.NumberFormat("en-US");
 let importInProgress = false;
@@ -5044,6 +5133,8 @@ function updateFileActionState() {
   importButton.setAttribute("aria-busy", String(importInProgress));
   exportButton.disabled = isBusy || !viewport?.canExportModel();
   exportButton.setAttribute("aria-busy", String(exportInProgress));
+  menuImportButton.disabled = isBusy;
+  menuExportButton.disabled = exportButton.disabled;
   fileInput.disabled = isBusy;
   clearModelButton.disabled = isBusy;
   for (const control of transformGizmoControlElements) control.disabled = isBusy;
@@ -5091,6 +5182,7 @@ async function importModelFile(file) {
 
     const elementLabel = result.hasSurfaceGeometry ? "vertices" : "points";
     modelName.textContent = file.name;
+    browserModelName.textContent = getDisplayName(file.name);
     modelStatus.title =
       file.name + " · " + numberFormatter.format(result.vertexCount) + " " + elementLabel;
     selectionChip.textContent = getDisplayName(file.name);
@@ -5181,6 +5273,7 @@ clearModelButton.addEventListener("click", () => {
   modelStatus.hidden = true;
   modelStatus.removeAttribute("title");
   modelName.textContent = "Untitled mesh";
+  browserModelName.textContent = "Demo Model";
   selectionChip.textContent = "Cube";
   updateBoundsReadout();
   resetEditHistory("Demo model");
@@ -5232,6 +5325,16 @@ document.querySelector(".brand").addEventListener("click", (event) => {
 window.addEventListener("keydown", (event) => {
   const shortcutKey = event.key.toLowerCase();
   const hasHistoryModifier = (event.ctrlKey || event.metaKey) && !event.altKey;
+  if (hasHistoryModifier && !event.shiftKey && shortcutKey === "o") {
+    event.preventDefault();
+    importButton.click();
+    return;
+  }
+  if (hasHistoryModifier && !event.shiftKey && shortcutKey === "e") {
+    event.preventDefault();
+    exportButton.click();
+    return;
+  }
   if (hasHistoryModifier && (shortcutKey === "z" || shortcutKey === "y")) {
     const keepsNativeTextHistory =
       event.target instanceof HTMLInputElement && !event.target.matches("[data-transform]");
