@@ -2770,11 +2770,11 @@ body {
 
 #viewportCanvas {
   top: var(--cad-topbar-height);
-  right: var(--cad-inspector-width);
-  bottom: var(--cad-statusbar-height);
+  right: auto;
+  bottom: auto;
   left: var(--cad-left-width);
-  width: auto;
-  height: auto;
+  width: calc(100% - var(--cad-left-width) - var(--cad-inspector-width));
+  height: calc(100% - var(--cad-topbar-height) - var(--cad-statusbar-height));
 }
 
 .drop-overlay {
@@ -3842,7 +3842,7 @@ body {
   }
 
   #viewportCanvas {
-    right: 0;
+    right: auto;
   }
 
   .drop-overlay {
