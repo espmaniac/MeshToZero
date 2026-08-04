@@ -1039,6 +1039,28 @@ function constrainSnapPoint(currentPoint, targetPoint, axis, space, quaternion) 
   return result;
 }
 
+function snapPointToOriginGrid(point, targetId, step) {
+  const snapped = point.clone();
+  const safeStep = Math.max(GEOMETRY_EPSILON, Number(step) || 1);
+  const snapCoordinate = (value) => Math.round(value / safeStep) * safeStep;
+  if (targetId === "z") {
+    snapped.set(snapCoordinate(snapped.x), snapCoordinate(snapped.y), 0);
+  } else if (targetId === "y") {
+    snapped.set(snapCoordinate(snapped.x), 0, snapCoordinate(snapped.z));
+  } else if (targetId === "x") {
+    snapped.set(0, snapCoordinate(snapped.y), snapCoordinate(snapped.z));
+  }
+  return snapped;
+}
+
+function calculateSnapAlignmentPosition(originalPosition, sourcePoint, targetPoint) {
+  return new THREE.Vector3(
+    originalPosition.x,
+    originalPosition.y,
+    originalPosition.z,
+  ).add(targetPoint.clone().sub(sourcePoint));
+}
+
 function solveLinear3x3(matrix, values) {
   const rows = matrix.map((row, index) => [...row, values[index]]);
   for (let column = 0; column < 3; column += 1) {
@@ -1169,7 +1191,9 @@ class ThreeViewport {
         }
         if (
           event.button === 0 &&
-          (this.selectionConfig.enabled || this.alignmentPlanePicking.enabled) &&
+          (this.selectionConfig.enabled ||
+            this.alignmentPlanePicking.enabled ||
+            this.snapAlignmentPicking.enabled) &&
           !this.transformControls.axis &&
           !this.transformControls.dragging
         ) {
@@ -1192,6 +1216,8 @@ class ThreeViewport {
         if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) return;
         if (this.alignmentPlanePicking.enabled) {
           this.pickAlignmentPlane(event);
+        } else if (this.snapAlignmentPicking.enabled) {
+          this.pickSnapAlignmentPoint(event);
         } else {
           this.pickConstructionReference(event);
         }
@@ -1199,14 +1225,20 @@ class ThreeViewport {
       { capture: true },
     );
     this.canvas.addEventListener("pointermove", (event) => {
-      if (this.alignmentPlanePicking.enabled && event.buttons === 0) {
+      if (this.snapAlignmentPicking.enabled && event.buttons === 0) {
+        this.showSnapPreview(this.getSnapAlignmentCandidate(event), event);
+      } else if (this.alignmentPlanePicking.enabled && event.buttons === 0) {
         this.setAlignmentPlaneHover(this.getAlignmentPlaneHit(event));
       }
       if (this.transformControls.dragging) {
         if (this.transformControls.mode === "translate") {
           this.updateSnapFromPointer(event, true);
         }
-      } else if (event.buttons === 0 && !this.alignmentPlanePicking.enabled) {
+      } else if (
+        event.buttons === 0 &&
+        !this.alignmentPlanePicking.enabled &&
+        !this.snapAlignmentPicking.enabled
+      ) {
         this.updateSnapFromPointer(event, false);
       }
     });
@@ -1393,8 +1425,79 @@ class ThreeViewport {
     this.snapMarker.renderOrder = 30;
     this.snapMarker.visible = false;
     this.scene.add(this.snapMarker);
+
+    this.snapAlignmentSourceMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffc857,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.snapAlignmentTargetMaterial = new THREE.MeshBasicMaterial({
+      color: 0x2aaee6,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.snapAlignmentLineMaterial = new THREE.LineBasicMaterial({
+      color: 0x2aaee6,
+      transparent: true,
+      opacity: 0.9,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.snapAlignmentSourceMarker = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 18, 12),
+      this.snapAlignmentSourceMaterial,
+    );
+    this.snapAlignmentTargetMarker = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 18, 12),
+      this.snapAlignmentTargetMaterial,
+    );
+    this.snapAlignmentGuideLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(),
+        new THREE.Vector3(),
+      ]),
+      this.snapAlignmentLineMaterial,
+    );
+    for (const object of [
+      this.snapAlignmentSourceMarker,
+      this.snapAlignmentTargetMarker,
+      this.snapAlignmentGuideLine,
+    ]) {
+      object.renderOrder = 29;
+      object.visible = false;
+      this.scene.add(object);
+    }
     this.objectSnapModes = Object.fromEntries(SNAP_TYPES.map((type) => [type, false]));
     this.circularSnapCache = new WeakMap();
+  }
+
+  setSnapAlignmentGuide(sourcePoint, targetPoint = null) {
+    if (!sourcePoint) {
+      this.clearSnapAlignmentGuide();
+      return;
+    }
+    const worldSize = this.getWorldBounds().getSize(new THREE.Vector3());
+    const markerSize = Math.max(worldSize.x, worldSize.y, worldSize.z, 0.1) * 0.014;
+    this.snapAlignmentSourceMarker.position.copy(sourcePoint);
+    this.snapAlignmentSourceMarker.scale.setScalar(markerSize);
+    this.snapAlignmentSourceMarker.visible = true;
+    this.snapAlignmentTargetMarker.visible = Boolean(targetPoint);
+    this.snapAlignmentGuideLine.visible = Boolean(targetPoint);
+    if (!targetPoint) return;
+
+    this.snapAlignmentTargetMarker.position.copy(targetPoint);
+    this.snapAlignmentTargetMarker.scale.setScalar(markerSize * 0.82);
+    const positions = this.snapAlignmentGuideLine.geometry.getAttribute("position");
+    positions.setXYZ(0, sourcePoint.x, sourcePoint.y, sourcePoint.z);
+    positions.setXYZ(1, targetPoint.x, targetPoint.y, targetPoint.z);
+    positions.needsUpdate = true;
+    this.snapAlignmentGuideLine.geometry.computeBoundingSphere();
+  }
+
+  clearSnapAlignmentGuide() {
+    if (this.snapAlignmentSourceMarker) this.snapAlignmentSourceMarker.visible = false;
+    if (this.snapAlignmentTargetMarker) this.snapAlignmentTargetMarker.visible = false;
+    if (this.snapAlignmentGuideLine) this.snapAlignmentGuideLine.visible = false;
   }
 
   createModelCenterMarker() {
@@ -1471,6 +1574,10 @@ class ThreeViewport {
       targetId: null,
       hovered: null,
     };
+    this.snapAlignmentPicking = {
+      enabled: false,
+      stage: "source",
+    };
     this.selectionReferences = [];
     this.constructionPlanes = [];
     this.planeSequence = 0;
@@ -1478,6 +1585,7 @@ class ThreeViewport {
     this.onPlanesChange = null;
     this.onModelCenterChange = null;
     this.onAlignmentPlanePick = null;
+    this.onAlignmentSnapPick = null;
     this.boundsHelper = null;
     this.boundsHelperMode = null;
     this.renderModel = null;
@@ -1901,6 +2009,15 @@ class ThreeViewport {
     this.updateAlignmentPlaneVisuals();
   }
 
+  configureSnapAlignmentPicking(enabled, stage = "source") {
+    const isEnabled = Boolean(enabled);
+    this.snapAlignmentPicking.enabled = isEnabled;
+    this.snapAlignmentPicking.stage = stage === "target" ? "target" : "source";
+    this.selectionPointerStart = null;
+    this.canvas.classList.toggle("is-snap-aligning", isEnabled);
+    if (!isEnabled) this.clearSnapPreview();
+  }
+
   setAlignmentPlaneSelection(sourceId, targetId) {
     this.alignmentPlanePicking.sourceId = sourceId || null;
     this.alignmentPlanePicking.targetId = targetId || null;
@@ -2093,8 +2210,41 @@ class ThreeViewport {
       }));
   }
 
-  getSnapCandidate(event) {
-    if (!this.renderModel || !this.hasObjectSnapMode()) return null;
+  getGridSnapCandidate(event) {
+    if (!state.transformGizmo.gridSnap) return null;
+    const gridHits = this.raycaster.intersectObjects(
+      Object.values(this.originPlaneGrids)
+        .filter((grid) => grid.group.visible && grid.pickSurface.visible)
+        .map((grid) => grid.pickSurface),
+      false,
+    );
+    const hit = gridHits[0];
+    if (!hit) return null;
+    const grid = Object.values(this.originPlaneGrids).find(
+      (candidate) => candidate.pickSurface === hit.object,
+    );
+    if (!grid) return null;
+    const target = ALIGNMENT_TARGETS[grid.targetId];
+    const point = snapPointToOriginGrid(
+      hit.point,
+      grid.targetId,
+      state.transformGizmo.gridStep,
+    );
+    return {
+      type: "grid",
+      point,
+      normal: target.normal.clone(),
+      label: "Grid · " + target.name,
+      movesWithModel: false,
+      screenDistance: this.getSnapScreenDistance(point, event),
+      priority: 1,
+    };
+  }
+
+  getSnapCandidate(event, { mobility = "any", includeGrid = false } = {}) {
+    const hasObjectSnap = this.hasObjectSnapMode();
+    const hasGridSnap = includeGrid && state.transformGizmo.gridSnap;
+    if (!this.renderModel || (!hasObjectSnap && !hasGridSnap)) return null;
     if (!this.setRaycasterFromPointerEvent(event)) return null;
     this.scene.updateMatrixWorld(true);
     const worldScale = this.modelRoot.getWorldScale(new THREE.Vector3());
@@ -2106,18 +2256,15 @@ class ThreeViewport {
       this.referenceScale * 0.015,
     );
 
-    const surfaceHit = this.raycaster.intersectObjects(
-      this.renderModel.surfaceGroup.children,
-      false,
-    )[0];
-    const edgeHit = this.raycaster.intersectObjects(
-      this.renderModel.edgeGroup.children,
-      false,
-    )[0];
-    const pointHit = this.raycaster.intersectObjects(
-      this.renderModel.pointCloudGroup.children,
-      false,
-    )[0];
+    const surfaceHit = hasObjectSnap
+      ? this.raycaster.intersectObjects(this.renderModel.surfaceGroup.children, false)[0]
+      : null;
+    const edgeHit = hasObjectSnap
+      ? this.raycaster.intersectObjects(this.renderModel.edgeGroup.children, false)[0]
+      : null;
+    const pointHit = hasObjectSnap
+      ? this.raycaster.intersectObjects(this.renderModel.pointCloudGroup.children, false)[0]
+      : null;
     const candidates = [];
     const priorities = { vertex: 0, midpoint: 1, center: 1, intersection: 1, edge: 2, face: 3 };
     const addCandidate = (
@@ -2141,6 +2288,11 @@ class ThreeViewport {
         priority: priorities[type],
       });
     };
+
+    if (hasGridSnap) {
+      const gridCandidate = this.getGridSnapCandidate(event);
+      if (gridCandidate) candidates.push(gridCandidate);
+    }
 
     const triangle = this.getTriangleWorldPoints(surfaceHit);
     let faceNormal = null;
@@ -2249,11 +2401,42 @@ class ThreeViewport {
       }
     }
 
-    candidates.sort(
+    const eligibleCandidates = candidates.filter((candidate) => {
+      if (mobility === "model") return candidate.movesWithModel;
+      if (mobility === "world") return !candidate.movesWithModel;
+      return true;
+    });
+    eligibleCandidates.sort(
       (left, right) =>
         left.priority - right.priority || left.screenDistance - right.screenDistance,
     );
-    return candidates[0] || null;
+    return eligibleCandidates[0] || null;
+  }
+
+  getSnapAlignmentCandidate(event) {
+    const isTarget = this.snapAlignmentPicking.stage === "target";
+    return this.getSnapCandidate(event, {
+      mobility: isTarget ? "world" : "model",
+      includeGrid: isTarget,
+    });
+  }
+
+  pickSnapAlignmentPoint(event) {
+    const candidate = this.getSnapAlignmentCandidate(event);
+    if (!candidate) {
+      showToast(
+        this.snapAlignmentPicking.stage === "source"
+          ? "Enable a model object snap, then click its marker."
+          : "Enable Grid or Intersection, then click a fixed world target.",
+      );
+      return;
+    }
+    this.showSnapPreview(candidate, event);
+    this.onAlignmentSnapPick?.({
+      ...candidate,
+      point: candidate.point.clone(),
+      normal: candidate.normal?.clone() || null,
+    });
   }
 
   showSnapPreview(candidate, event) {
@@ -3830,6 +4013,8 @@ class ThreeViewport {
     this.modelCenterCoreMaterial.color.setStyle(value("--accent"));
     this.modelCenterHaloMaterial.color.set(darkTheme ? 0xf5f5f5 : 0x252525);
     this.snapMarkerMaterial?.color.setStyle(value("--accent"));
+    this.snapAlignmentTargetMaterial?.color.setStyle(value("--accent"));
+    this.snapAlignmentLineMaterial?.color.setStyle(value("--accent"));
 
     if (this.boundsHelper) this.boundsHelper.material.color.setStyle(value("--accent"));
     this.updateAlignmentPlaneVisuals();
@@ -4527,6 +4712,9 @@ const applyOrientationButton = document.querySelector("#applyOrientation");
 const cancelOrientationButton = document.querySelector("#cancelOrientation");
 const levelWorkbench = document.querySelector("#levelWorkbench");
 const closeLevelWorkbenchButton = document.querySelector("#closeLevelWorkbench");
+const levelModeButtons = [...document.querySelectorAll("[data-level-mode]")];
+const levelPlanePanel = document.querySelector("#levelPlanePanel");
+const snapAlignPanel = document.querySelector("#snapAlignPanel");
 const levelEmptyState = document.querySelector("#levelEmptyState");
 const levelControls = document.querySelector("#levelControls");
 const levelSourcePlane = document.querySelector("#levelSourcePlane");
@@ -4537,6 +4725,20 @@ const flipLevelNormalButton = document.querySelector("#flipLevelNormal");
 const turnLevelDirectionButton = document.querySelector("#turnLevelDirection");
 const applyLevelButton = document.querySelector("#applyLevel");
 const cancelLevelButton = document.querySelector("#cancelLevel");
+const snapAlignPickTitle = document.querySelector("#snapAlignPickTitle");
+const snapAlignPickText = document.querySelector("#snapAlignPickText");
+const snapAlignSourceStep = document.querySelector("#snapAlignSourceStep");
+const snapAlignTargetStep = document.querySelector("#snapAlignTargetStep");
+const snapAlignSourceValue = document.querySelector("#snapAlignSourceValue");
+const snapAlignSourceCoordinates = document.querySelector("#snapAlignSourceCoordinates");
+const snapAlignTargetValue = document.querySelector("#snapAlignTargetValue");
+const snapAlignTargetCoordinates = document.querySelector("#snapAlignTargetCoordinates");
+const snapAlignSummary = document.querySelector("#snapAlignSummary");
+const snapAlignModeHint = document.querySelector("#snapAlignModeHint");
+const useSnapModelCenterButton = document.querySelector("#useSnapModelCenter");
+const repickSnapSourceButton = document.querySelector("#repickSnapSource");
+const useSnapWorldOriginButton = document.querySelector("#useSnapWorldOrigin");
+const repickSnapTargetButton = document.querySelector("#repickSnapTarget");
 const activePlaneMethods = Object.fromEntries(
   Object.entries(PLANE_MODES).map(([mode, config]) => [mode, config.defaultMethod]),
 );
@@ -4550,6 +4752,9 @@ let orientationQuarterTurns = 0;
 let orientationAnalysisSequence = 0;
 let levelNormalFlipped = false;
 let levelQuarterTurns = 0;
+let activeLevelMode = "plane";
+let snapAlignSource = null;
+let snapAlignTarget = null;
 let layFlatApplying = false;
 
 function formatPointCoordinates(point) {
@@ -5056,12 +5261,17 @@ function beginAlignmentPreview(type) {
   };
 }
 
-function previewAlignmentTransform(type, quaternion, position = null) {
+function previewAlignmentTransform(
+  type,
+  quaternion,
+  position = null,
+  syncOrbitTarget = true,
+) {
   beginAlignmentPreview(type);
-  applyModelTransform(quaternion, position);
+  applyModelTransform(quaternion, position, syncOrbitTarget);
 }
 
-function applyModelTransform(quaternion, position = null) {
+function applyModelTransform(quaternion, position = null, syncOrbitTarget = true) {
   const euler = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
   if (position) {
     state.model.position = {
@@ -5076,7 +5286,7 @@ function applyModelTransform(quaternion, position = null) {
     z: Math.abs(euler.z) <= 1e-12 ? 0 : euler.z,
   };
   writeTransformInputs();
-  viewport?.applyTransform();
+  viewport?.applyTransform(true, syncOrbitTarget);
 }
 
 function previewAlignmentRotation(type, quaternion) {
@@ -5089,7 +5299,7 @@ function endAlignmentPreview(type, restore) {
     state.model.position = { ...alignmentPreviewSession.originalPosition };
     state.model.rotation = { ...alignmentPreviewSession.originalRotation };
     writeTransformInputs();
-    viewport?.applyTransform();
+    viewport?.applyTransform(true, type !== "snap");
   }
   alignmentPreviewSession = null;
 }
@@ -5105,7 +5315,12 @@ function closeRotationWorkbench(restore) {
 function closeLevelWorkbench(restore) {
   levelWorkbench.hidden = true;
   viewport?.configureAlignmentPlanePicking(false);
+  viewport?.configureSnapAlignmentPicking(false);
   endAlignmentPreview("manual", restore);
+  endAlignmentPreview("snap", restore);
+  viewport?.clearSnapAlignmentGuide();
+  snapAlignSource = null;
+  snapAlignTarget = null;
   updateLeftRailWorkbench();
   updateTransformGizmoVisibility();
 }
@@ -5241,6 +5456,192 @@ function formatWorldAxis(direction) {
   return (axes[0][1] < 0 ? "−" : "+") + axes[0][0];
 }
 
+function updateSnapAlignModeHint() {
+  if (!snapAlignModeHint) return;
+  const objectModes = SNAP_TYPES.filter(
+    (type) => state.transformGizmo.objectSnap[type],
+  ).map((type) => type[0].toUpperCase() + type.slice(1));
+  const targetModes = [];
+  if (state.transformGizmo.gridSnap) targetModes.push("Grid");
+  if (state.transformGizmo.objectSnap.intersection) targetModes.push("Intersection");
+  snapAlignModeHint.textContent =
+    "Model snaps: " +
+    (objectModes.join(", ") || "none") +
+    ". Fixed targets: " +
+    (targetModes.join(", ") || "World Origin button only") +
+    ".";
+}
+
+function updateSnapAlignmentUi() {
+  const hasSource = Boolean(snapAlignSource);
+  const hasTarget = Boolean(snapAlignTarget);
+  snapAlignSourceStep.dataset.state = hasSource ? "complete" : "active";
+  snapAlignSourceStep.classList.toggle("is-active", !hasSource);
+  snapAlignTargetStep.dataset.state = hasTarget
+    ? "complete"
+    : hasSource
+      ? "active"
+      : "pending";
+  snapAlignTargetStep.classList.toggle("is-active", hasSource && !hasTarget);
+
+  snapAlignSourceValue.textContent = hasSource ? snapAlignSource.label : "Not selected";
+  snapAlignSourceCoordinates.textContent = hasSource
+    ? formatPointCoordinates(snapAlignSource.point)
+    : "Choose a model snap in the viewport.";
+  snapAlignTargetValue.textContent = hasTarget
+    ? snapAlignTarget.label
+    : hasSource
+      ? "Not selected"
+      : "Waiting for Source";
+  snapAlignTargetCoordinates.textContent = hasTarget
+    ? formatPointCoordinates(snapAlignTarget.point)
+    : "Grid, world-plane intersection, or origin.";
+
+  repickSnapSourceButton.disabled = !hasSource;
+  useSnapWorldOriginButton.disabled = !hasSource;
+  repickSnapTargetButton.disabled = !hasSource;
+  applyLevelButton.disabled = !hasSource || !hasTarget;
+  applyLevelButton.querySelector("span").textContent = "Apply Translation";
+
+  snapAlignPickTitle.textContent = hasSource ? "Choose Target" : "Choose Source";
+  snapAlignPickText.textContent = hasSource
+    ? hasTarget
+      ? "Target selected. Click another Grid or world-plane Intersection to replace it."
+      : "Click a fixed Grid or world-plane Intersection, or use World Origin."
+    : "Enable a model object snap below, then click its marker on the model.";
+
+  if (hasSource && hasTarget) {
+    const delta = snapAlignTarget.point.clone().sub(snapAlignSource.point);
+    snapAlignSummary.textContent =
+      "Translation ΔX " +
+      formatCoordinate(delta.x) +
+      " · ΔY " +
+      formatCoordinate(delta.y) +
+      " · ΔZ " +
+      formatCoordinate(delta.z) +
+      " · Distance " +
+      formatCoordinate(delta.length());
+    snapAlignSummary.hidden = false;
+  } else {
+    snapAlignSummary.hidden = true;
+  }
+
+  if (!levelWorkbench.hidden && activeLevelMode === "snap") {
+    viewport?.configureSnapAlignmentPicking(true, hasSource ? "target" : "source");
+  }
+  viewport?.setSnapAlignmentGuide(
+    snapAlignSource?.point || null,
+    snapAlignTarget?.point || null,
+  );
+  updateSnapAlignModeHint();
+}
+
+function resetSnapAlignmentSource() {
+  endAlignmentPreview("snap", true);
+  beginAlignmentPreview("snap");
+  snapAlignSource = null;
+  snapAlignTarget = null;
+  viewport?.clearSnapPreview();
+  updateSnapAlignmentUi();
+}
+
+function resetSnapAlignmentTarget() {
+  if (!snapAlignSource) return;
+  endAlignmentPreview("snap", true);
+  beginAlignmentPreview("snap");
+  snapAlignTarget = null;
+  viewport?.clearSnapPreview();
+  updateSnapAlignmentUi();
+}
+
+function selectSnapAlignmentSource(candidate) {
+  if (!candidate?.point) return;
+  snapAlignSource = {
+    type: candidate.type,
+    label: candidate.label,
+    point: candidate.point.clone(),
+  };
+  snapAlignTarget = null;
+  viewport?.clearSnapPreview();
+  updateSnapAlignmentUi();
+  showToast(candidate.label + " selected as Source.");
+}
+
+function previewSnapAlignment() {
+  if (!snapAlignSource || !snapAlignTarget || !viewport) return;
+  beginAlignmentPreview("snap");
+  const original = alignmentPreviewSession;
+  const rotation = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(
+      original.originalRotation.x,
+      original.originalRotation.y,
+      original.originalRotation.z,
+      "XYZ",
+    ),
+  );
+  const position = calculateSnapAlignmentPosition(
+    original.originalPosition,
+    snapAlignSource.point,
+    snapAlignTarget.point,
+  );
+  previewAlignmentTransform("snap", rotation, position, false);
+}
+
+function selectSnapAlignmentTarget(candidate) {
+  if (!candidate?.point || !snapAlignSource) return;
+  snapAlignTarget = {
+    type: candidate.type,
+    label: candidate.label,
+    point: candidate.point.clone(),
+  };
+  previewSnapAlignment();
+  viewport?.clearSnapPreview();
+  updateSnapAlignmentUi();
+  showToast(candidate.label + " selected as Target. Translation previewed.");
+}
+
+function handleSnapAlignmentPick(candidate) {
+  if (!viewport || levelWorkbench.hidden || activeLevelMode !== "snap") return;
+  if (!snapAlignSource) {
+    if (!candidate.movesWithModel) return;
+    selectSnapAlignmentSource(candidate);
+  } else {
+    if (candidate.movesWithModel) return;
+    selectSnapAlignmentTarget(candidate);
+  }
+}
+
+function setLevelAlignmentMode(mode, force = false) {
+  const nextMode = mode === "snap" ? "snap" : "plane";
+  if (!force && nextMode === activeLevelMode) return;
+
+  viewport?.configureAlignmentPlanePicking(false);
+  viewport?.configureSnapAlignmentPicking(false);
+  endAlignmentPreview("manual", true);
+  endAlignmentPreview("snap", true);
+  viewport?.clearSnapAlignmentGuide();
+  snapAlignSource = null;
+  snapAlignTarget = null;
+  activeLevelMode = nextMode;
+
+  const activeButton = levelModeButtons.find(
+    (button) => button.dataset.levelMode === activeLevelMode,
+  );
+  if (activeButton) setPressedState(levelModeButtons, activeButton);
+  levelPlanePanel.hidden = activeLevelMode !== "plane";
+  snapAlignPanel.hidden = activeLevelMode !== "snap";
+
+  if (levelWorkbench.hidden) return;
+  if (activeLevelMode === "plane") {
+    applyLevelButton.querySelector("span").textContent = "Apply Alignment";
+    beginAlignmentPreview("manual");
+    populateAlignmentPlaneReferences();
+  } else {
+    beginAlignmentPreview("snap");
+    updateSnapAlignmentUi();
+  }
+}
+
 function updateLevelAlignmentSummary() {
   const target = ALIGNMENT_TARGETS[levelTargetPlane.value];
   const targetAxis = formatWorldAxis(target.normal);
@@ -5259,7 +5660,14 @@ function updateLevelAlignmentSummary() {
 }
 
 function previewLevelAlignment() {
-  if (levelWorkbench.hidden || !levelSourcePlane.value || !viewport) return;
+  if (
+    levelWorkbench.hidden ||
+    activeLevelMode !== "plane" ||
+    !levelSourcePlane.value ||
+    !viewport
+  ) {
+    return;
+  }
   try {
     viewport.setAlignmentPlaneSelection(
       levelSourcePlane.value,
@@ -5306,7 +5714,7 @@ function populateAlignmentPlaneReferences() {
   levelEmptyState.hidden = hasPlanes;
   levelControls.hidden = !hasPlanes;
   applyLevelButton.disabled = !hasPlanes;
-  if (!levelWorkbench.hidden) {
+  if (!levelWorkbench.hidden && activeLevelMode === "plane") {
     viewport?.configureAlignmentPlanePicking(
       hasPlanes,
       hasPlanes ? levelSourcePlane.value : null,
@@ -5323,7 +5731,14 @@ function resetLevelSourceAdjustments() {
 }
 
 function handleAlignmentPlanePick(hit) {
-  if (!viewport || levelWorkbench.hidden || levelControls.hidden) return;
+  if (
+    !viewport ||
+    levelWorkbench.hidden ||
+    activeLevelMode !== "plane" ||
+    levelControls.hidden
+  ) {
+    return;
+  }
 
   if (hit.kind === "source") {
     const option = [...levelSourcePlane.options].find(
@@ -5356,10 +5771,14 @@ function openLevelWorkbench() {
   levelNormalFlipped = false;
   levelQuarterTurns = 0;
   flipLevelNormalButton.setAttribute("aria-pressed", "false");
-  beginAlignmentPreview("manual");
-  populateAlignmentPlaneReferences();
+  setLevelAlignmentMode(activeLevelMode, true);
 }
 
+levelModeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setLevelAlignmentMode(button.dataset.levelMode);
+  });
+});
 analyzeOrientationButton.addEventListener("click", () => void analyzeModelOrientation());
 recalculateOrientationButton.addEventListener("click", () => void analyzeModelOrientation());
 turnOrientationButton.addEventListener("click", () => {
@@ -5403,10 +5822,20 @@ turnLevelDirectionButton.addEventListener("click", () => {
 applyLevelButton.addEventListener("click", () => {
   if (applyLevelButton.disabled) return;
   const beforeState = alignmentPreviewSession?.historyBefore;
+  const isSnapAlignment = activeLevelMode === "snap";
   closeLevelWorkbench(false);
-  if (beforeState) recordEdit("Align plane from current state", beforeState);
+  if (beforeState) {
+    recordEdit(
+      isSnapAlignment ? "Align snap to snap" : "Align plane from current state",
+      beforeState,
+    );
+  }
   clearActiveToolSection();
-  showToast("Plane aligned. This result is now the base for the next alignment.");
+  showToast(
+    isSnapAlignment
+      ? "Source moved exactly to Target. Rotation and scale were preserved."
+      : "Plane aligned. This result is now the base for the next alignment.",
+  );
 });
 cancelLevelButton.addEventListener("click", () => {
   closeLevelWorkbench(true);
@@ -5421,11 +5850,35 @@ openPlaneForLevelButton.addEventListener("click", () => {
   setPlaneWorkbenchOpen(true);
 });
 
+useSnapModelCenterButton.addEventListener("click", () => {
+  if (!viewport || activeLevelMode !== "snap") return;
+  resetSnapAlignmentSource();
+  const center = viewport.getModelCenterInfo()?.world;
+  if (!center) return;
+  selectSnapAlignmentSource({
+    type: "center",
+    label: "Model center",
+    point: center,
+    movesWithModel: true,
+  });
+});
+repickSnapSourceButton.addEventListener("click", resetSnapAlignmentSource);
+useSnapWorldOriginButton.addEventListener("click", () => {
+  selectSnapAlignmentTarget({
+    type: "origin",
+    label: "World origin",
+    point: new THREE.Vector3(0, 0, 0),
+    movesWithModel: false,
+  });
+});
+repickSnapTargetButton.addEventListener("click", resetSnapAlignmentTarget);
+
 if (viewport) {
   viewport.onSelectionChange = handleConstructionSelectionChange;
   viewport.onPlanesChange = renderCreatedPlanes;
   viewport.onModelCenterChange = updateModelCenterUi;
   viewport.onAlignmentPlanePick = handleAlignmentPlanePick;
+  viewport.onAlignmentSnapPick = handleSnapAlignmentPick;
 }
 populatePlaneReferences();
 renderCreatedPlanes(viewport?.constructionPlanes || []);
@@ -5499,6 +5952,7 @@ function updateTransformGizmoUi() {
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   }
+  updateSnapAlignModeHint();
 }
 
 function updateSnapStep(input, stateKey, minimum, maximum = Number.POSITIVE_INFINITY) {
