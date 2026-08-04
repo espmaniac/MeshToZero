@@ -36,6 +36,7 @@ The application is built with HTML, CSS, JavaScript, and Three.js. It has no fra
 - World and Local coordinate spaces
 - Position-to-grid and rotation-to-angle snapping
 - CAD object snaps for vertices, edge midpoints, nearest edge points, faces, centers, and plane intersections
+- Snap-to-snap translation from a model reference to Grid, a world-plane intersection, or World Origin
 - Linked or independent scale controls
 - Automatic six-orientation analysis
 - Sequential plane-to-world alignment

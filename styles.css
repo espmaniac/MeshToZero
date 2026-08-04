@@ -172,6 +172,10 @@ input:focus-visible {
   cursor: crosshair;
 }
 
+#viewportCanvas.is-snap-aligning {
+  cursor: crosshair;
+}
+
 #viewportCanvas.is-plane-pick-hover {
   cursor: pointer;
 }
@@ -555,6 +559,59 @@ input:focus-visible {
   line-height: 1.55;
 }
 
+.level-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin-bottom: 13px;
+  padding: 3px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.level-mode-button {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  min-height: 48px;
+  align-content: center;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.level-mode-button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.level-mode-button.is-active {
+  background: var(--surface-solid);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.level-mode-button strong {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 710;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.level-mode-button small {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .alignment-status {
   display: flex;
   min-height: 42px;
@@ -604,7 +661,10 @@ input:focus-visible {
 .orientation-results[hidden],
 .alignment-analyze-button[hidden],
 .alignment-empty[hidden],
-#levelControls[hidden] {
+#levelControls[hidden],
+#levelPlanePanel[hidden],
+#snapAlignPanel[hidden],
+#snapAlignSummary[hidden] {
   display: none;
 }
 
@@ -770,6 +830,98 @@ input:focus-visible {
   margin-bottom: 1px;
   color: var(--text-primary);
   font-size: 10px;
+}
+
+.snap-align-pick-tip {
+  margin-top: 12px;
+}
+
+.snap-align-pick-tip > span > span {
+  display: block;
+}
+
+.snap-align-steps {
+  display: grid;
+  gap: 8px;
+}
+
+.snap-align-step {
+  display: grid;
+  gap: 7px;
+  padding: 10px 11px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.snap-align-step.is-active {
+  border-color: var(--accent);
+}
+
+.snap-align-step[data-state="complete"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft-strong);
+}
+
+.snap-align-step header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.snap-align-step header > span:last-child {
+  display: grid;
+  gap: 1px;
+}
+
+.snap-align-step header small,
+.snap-align-coordinates {
+  color: var(--text-tertiary);
+  font-size: 9px;
+}
+
+.snap-align-step header strong,
+.snap-align-value {
+  color: var(--text-primary);
+  font-size: 10px;
+}
+
+.snap-align-step-number {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  background: var(--surface-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 720;
+}
+
+.snap-align-step.is-active .snap-align-step-number,
+.snap-align-step[data-state="complete"] .snap-align-step-number {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.snap-align-value,
+.snap-align-coordinates {
+  overflow-wrap: anywhere;
+}
+
+.snap-align-step-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.snap-align-step-actions .alignment-adjust-button {
+  min-height: 33px;
+  padding: 4px 6px;
+  border-radius: 9px;
+  font-size: 9px;
 }
 
 .alignment-fields {

@@ -580,50 +580,109 @@
           </header>
 
           <div class="workbench-scroll">
-            <p class="alignment-copy">A model plane supplies an exact origin, normal, and in-plane X direction. Matching all three can place a flat face on an origin plane or align a center plane precisely.</p>
-
-            <div class="alignment-empty" id="levelEmptyState">
-              <svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg>
-              <strong>Create a model plane first</strong>
-              <span>Use a face, three points, two edges, or best fit in the Plane tool.</span>
-              <button class="alignment-adjust-button" id="openPlaneForLevel" type="button">Open Plane Tool</button>
+            <div class="level-mode-switch" role="group" aria-label="Alignment method">
+              <button class="level-mode-button is-active" type="button" data-level-mode="plane" aria-controls="levelPlanePanel" aria-pressed="true">
+                <strong>Plane to Plane</strong>
+                <small>Position + rotation</small>
+              </button>
+              <button class="level-mode-button" type="button" data-level-mode="snap" aria-controls="snapAlignPanel" aria-pressed="false">
+                <strong>Snap to Snap</strong>
+                <small>Exact translation</small>
+              </button>
             </div>
 
-            <div id="levelControls" hidden>
-              <div class="alignment-pick-tip" id="levelPlanePickHint">
+            <div id="levelPlanePanel">
+              <p class="alignment-copy">A model plane supplies an exact origin, normal, and in-plane X direction. Matching all three can place a flat face on an origin plane or align a center plane precisely.</p>
+
+              <div class="alignment-empty" id="levelEmptyState">
                 <svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg>
-                <span><strong>Pick in the viewport</strong> Click a model plane for Source, or click the Top, Front, or Right origin grid for Target.</span>
+                <strong>Create a model plane first</strong>
+                <span>Use a face, three points, two edges, or best fit in the Plane tool.</span>
+                <button class="alignment-adjust-button" id="openPlaneForLevel" type="button">Open Plane Tool</button>
               </div>
 
-              <div class="alignment-fields">
-                <label class="workbench-field">
-                  <span>Model reference</span>
-                  <select id="levelSourcePlane" aria-describedby="levelPlanePickHint"></select>
-                </label>
-                <label class="workbench-field">
-                  <span>World target</span>
-                  <select id="levelTargetPlane" aria-describedby="levelPlanePickHint">
-                    <option value="z">Top (XY) · Normal +Z</option>
-                    <option value="y">Front (XZ) · Normal +Y</option>
-                    <option value="x">Right (YZ) · Normal +X</option>
-                  </select>
-                </label>
+              <div id="levelControls" hidden>
+                <div class="alignment-pick-tip" id="levelPlanePickHint">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg>
+                  <span><strong>Pick in the viewport</strong> Click a model plane for Source, or click the Top, Front, or Right origin grid for Target.</span>
+                </div>
+
+                <div class="alignment-fields">
+                  <label class="workbench-field">
+                    <span>Model reference</span>
+                    <select id="levelSourcePlane" aria-describedby="levelPlanePickHint"></select>
+                  </label>
+                  <label class="workbench-field">
+                    <span>World target</span>
+                    <select id="levelTargetPlane" aria-describedby="levelPlanePickHint">
+                      <option value="z">Top (XY) · Normal +Z</option>
+                      <option value="y">Front (XZ) · Normal +Y</option>
+                      <option value="x">Right (YZ) · Normal +X</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="alignment-summary" id="levelAlignmentSummary">Plane normal → +Z · Plane offset on Z → 0 · Composed from current state</div>
+
+                <div class="alignment-adjustments">
+                  <button class="alignment-adjust-button" id="flipLevelNormal" type="button" aria-pressed="false">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-level"></use></svg>
+                    <span>Flip Normal</span>
+                  </button>
+                  <button class="alignment-adjust-button" id="turnLevelDirection" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
+                    <span>Turn 90°</span>
+                  </button>
+                </div>
+
+                <p class="alignment-hint">The preview adds the smallest rotation to the current model state, then moves only along the target plane normal. Apply keeps that result as the base for the next alignment; Cancel restores the previous transform.</p>
+              </div>
+            </div>
+
+            <div id="snapAlignPanel" hidden>
+              <p class="alignment-copy">Choose one snap on the model, then a fixed point in world space. The model is translated exactly; its rotation and scale stay unchanged.</p>
+
+              <div class="alignment-pick-tip snap-align-pick-tip" id="snapAlignPickHint" role="status" aria-live="polite">
+                <svg class="icon" aria-hidden="true"><use href="#icon-focus"></use></svg>
+                <span><strong id="snapAlignPickTitle">Choose Source</strong><span id="snapAlignPickText">Enable Vertex, Midpoint, Edge, Face, Center, or Intersection below, then click its marker on the model.</span></span>
               </div>
 
-              <div class="alignment-summary" id="levelAlignmentSummary">Plane normal → +Z · Plane offset on Z → 0 · Composed from current state</div>
+              <div class="snap-align-steps">
+                <section class="snap-align-step is-active" id="snapAlignSourceStep" data-state="active" aria-labelledby="snapAlignSourceTitle">
+                  <header>
+                    <span class="snap-align-step-number" aria-hidden="true">1</span>
+                    <span>
+                      <small>Model point</small>
+                      <strong id="snapAlignSourceTitle">Source</strong>
+                    </span>
+                  </header>
+                  <strong class="snap-align-value" id="snapAlignSourceValue">Not selected</strong>
+                  <small class="snap-align-coordinates" id="snapAlignSourceCoordinates">Choose a model snap in the viewport.</small>
+                  <div class="snap-align-step-actions">
+                    <button class="alignment-adjust-button" id="useSnapModelCenter" type="button">Use Model Center</button>
+                    <button class="alignment-adjust-button" id="repickSnapSource" type="button" disabled>Repick</button>
+                  </div>
+                </section>
 
-              <div class="alignment-adjustments">
-                <button class="alignment-adjust-button" id="flipLevelNormal" type="button" aria-pressed="false">
-                  <svg class="icon" aria-hidden="true"><use href="#icon-level"></use></svg>
-                  <span>Flip Normal</span>
-                </button>
-                <button class="alignment-adjust-button" id="turnLevelDirection" type="button">
-                  <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
-                  <span>Turn 90°</span>
-                </button>
+                <section class="snap-align-step" id="snapAlignTargetStep" data-state="pending" aria-labelledby="snapAlignTargetTitle">
+                  <header>
+                    <span class="snap-align-step-number" aria-hidden="true">2</span>
+                    <span>
+                      <small>Fixed world point</small>
+                      <strong id="snapAlignTargetTitle">Target</strong>
+                    </span>
+                  </header>
+                  <strong class="snap-align-value" id="snapAlignTargetValue">Waiting for Source</strong>
+                  <small class="snap-align-coordinates" id="snapAlignTargetCoordinates">Grid, world-plane intersection, or origin.</small>
+                  <div class="snap-align-step-actions">
+                    <button class="alignment-adjust-button" id="useSnapWorldOrigin" type="button" disabled>Use World Origin</button>
+                    <button class="alignment-adjust-button" id="repickSnapTarget" type="button" disabled>Repick</button>
+                  </div>
+                </section>
               </div>
 
-              <p class="alignment-hint">The preview adds the smallest rotation to the current model state, then moves only along the target plane normal. Apply keeps that result as the base for the next alignment; Cancel restores the previous transform.</p>
+              <div class="alignment-summary" id="snapAlignSummary" hidden>Translation ΔX 0 · ΔY 0 · ΔZ 0</div>
+              <p class="alignment-hint" id="snapAlignModeHint">Active snaps are shown in the lower toolbar. Grid and world-plane Intersection can be used as fixed targets.</p>
             </div>
 
             <div class="alignment-actions">
