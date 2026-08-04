@@ -84,6 +84,9 @@ Current model transformations are baked into exported vertex coordinates.
 | Middle-mouse drag | Orbit around the current model center |
 | Right-mouse drag | Pan |
 | Mouse wheel | Zoom |
+| ViewCube face | Switch to the corresponding orthogonal view |
+| ViewCube corner | Switch to the corresponding isometric view |
+| ViewCube Home button | Restore the home view and fit the model |
 | `Ctrl+Z` | Undo |
 | `Ctrl+Y` or `Ctrl+Shift+Z` | Redo |
 
