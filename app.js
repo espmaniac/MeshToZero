@@ -24,6 +24,16 @@ const SNAP_TYPES = ["vertex", "midpoint", "edge", "face", "center", "intersectio
 const SUPPORTED_EXTENSIONS = new Set(["obj", "ply", "stl"]);
 const DEFAULT_VIEW_DIRECTION = new THREE.Vector3(0.55, 0.62, 0.56).normalize();
 const PLANE_COLORS = [0x5a5a5a, 0x168aad, 0xe07a2f, 0x2f9d62, 0xd94f70, 0x4f83a8];
+const VIEW_CUBE_SIZE = 1.28;
+const VIEW_CUBE_HALF_SIZE = VIEW_CUBE_SIZE / 2;
+const VIEW_CUBE_FACES = [
+  { name: "Right", direction: new THREE.Vector3(1, 0, 0) },
+  { name: "Left", direction: new THREE.Vector3(-1, 0, 0) },
+  { name: "Front", direction: new THREE.Vector3(0, 1, 0) },
+  { name: "Back", direction: new THREE.Vector3(0, -1, 0) },
+  { name: "Top", direction: new THREE.Vector3(0, 0, 1) },
+  { name: "Bottom", direction: new THREE.Vector3(0, 0, -1) },
+];
 
 const ALIGNMENT_TARGETS = {
   z: {
@@ -1135,6 +1145,289 @@ function fitCircleToPoints(points) {
   };
 }
 
+class ViewCubeNavigator {
+  constructor(targetCanvas, { onSelectView, onHome }) {
+    this.canvas = targetCanvas;
+    this.container = targetCanvas.closest(".view-cube");
+    this.label = this.container?.querySelector("#viewCubeLabel") || null;
+    this.homeButton = this.container?.querySelector("#viewCubeHome") || null;
+    this.onSelectView = onSelectView;
+    this.onHome = onHome;
+    this.pointer = new THREE.Vector2();
+    this.raycaster = new THREE.Raycaster();
+    this.hovered = null;
+    this.announcementTimer = 0;
+    this.renderSize = { width: 0, height: 0, pixelRatio: 0 };
+
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: targetCanvas,
+      antialias: true,
+      alpha: true,
+      powerPreference: "low-power",
+    });
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.setClearColor(0x000000, 0);
+
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.OrthographicCamera(-1.45, 1.45, 1.45, -1.45, 0.1, 10);
+    this.camera.position.set(0, 0, 4);
+    this.camera.lookAt(0, 0, 0);
+
+    this.cubeGroup = new THREE.Group();
+    this.scene.add(this.cubeGroup);
+
+    this.faceEntries = VIEW_CUBE_FACES.map((face) => {
+      const textureCanvas = document.createElement("canvas");
+      textureCanvas.width = 256;
+      textureCanvas.height = 256;
+      const texture = new THREE.CanvasTexture(textureCanvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = Math.min(4, this.renderer.capabilities.getMaxAnisotropy());
+      return {
+        ...face,
+        textureCanvas,
+        texture,
+        material: new THREE.MeshBasicMaterial({ map: texture }),
+      };
+    });
+
+    this.cube = new THREE.Mesh(
+      new THREE.BoxGeometry(VIEW_CUBE_SIZE, VIEW_CUBE_SIZE, VIEW_CUBE_SIZE),
+      this.faceEntries.map((face) => face.material),
+    );
+    this.cube.name = "View cube";
+    this.cubeGroup.add(this.cube);
+
+    this.edgeMaterial = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.78 });
+    this.cubeEdges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(this.cube.geometry),
+      this.edgeMaterial,
+    );
+    this.cubeEdges.renderOrder = 2;
+    this.cubeGroup.add(this.cubeEdges);
+
+    const cornerGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+    this.cornerTargets = [];
+    for (const x of [-1, 1]) {
+      for (const y of [-1, 1]) {
+        for (const z of [-1, 1]) {
+          const direction = new THREE.Vector3(x, y, z).normalize();
+          const material = new THREE.MeshBasicMaterial();
+          const corner = new THREE.Mesh(cornerGeometry, material);
+          corner.position.set(
+            x * VIEW_CUBE_HALF_SIZE,
+            y * VIEW_CUBE_HALF_SIZE,
+            z * VIEW_CUBE_HALF_SIZE,
+          );
+          corner.userData.viewDirection = direction;
+          corner.userData.viewName = this.describeCorner(direction);
+          corner.renderOrder = 3;
+          this.cornerTargets.push(corner);
+          this.cubeGroup.add(corner);
+        }
+      }
+    }
+
+    this.faceHoverMaterial = new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+    });
+    this.faceHover = new THREE.Mesh(
+      new THREE.PlaneGeometry(VIEW_CUBE_SIZE * 0.93, VIEW_CUBE_SIZE * 0.93),
+      this.faceHoverMaterial,
+    );
+    this.faceHover.visible = false;
+    this.faceHover.renderOrder = 4;
+    this.cubeGroup.add(this.faceHover);
+
+    this.interactiveObjects = [this.cube, ...this.cornerTargets];
+
+    this.canvas.addEventListener("pointermove", (event) => {
+      this.setHover(this.getHit(event));
+    });
+    this.canvas.addEventListener("pointerleave", () => this.setHover(null));
+    this.canvas.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      this.canvas.focus({ preventScroll: true });
+    });
+    this.canvas.addEventListener("click", (event) => {
+      const hit = this.getHit(event);
+      if (!hit) return;
+      event.preventDefault();
+      this.selectHit(hit);
+    });
+    this.canvas.addEventListener("keydown", (event) => this.handleKeydown(event));
+    this.homeButton?.addEventListener("click", () => {
+      this.onHome?.();
+      this.announce("Home");
+    });
+
+    this.resize();
+    this.updateTheme();
+  }
+
+  describeCorner(direction) {
+    const vertical = direction.z > 0 ? "Top" : "Bottom";
+    const depth = direction.y > 0 ? "Front" : "Back";
+    const side = direction.x > 0 ? "Right" : "Left";
+    return `${vertical} · ${depth} · ${side}`;
+  }
+
+  getHit(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    this.pointer.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const [intersection] = this.raycaster.intersectObjects(this.interactiveObjects, false);
+    if (!intersection) return null;
+
+    const cornerDirection = intersection.object.userData.viewDirection;
+    if (cornerDirection) {
+      return {
+        kind: "corner",
+        object: intersection.object,
+        direction: cornerDirection,
+        name: intersection.object.userData.viewName,
+      };
+    }
+
+    const face = this.faceEntries[intersection.face?.materialIndex ?? -1];
+    if (!face) return null;
+    return {
+      kind: "face",
+      object: intersection.object,
+      direction: face.direction,
+      name: face.name,
+    };
+  }
+
+  setHover(hit) {
+    this.hovered = hit;
+    for (const corner of this.cornerTargets) {
+      corner.scale.setScalar(corner === hit?.object ? 1.3 : 1);
+      corner.material.color.setStyle(
+        corner === hit?.object ? this.hoverColor : this.cornerColor,
+      );
+    }
+
+    this.faceHover.visible = hit?.kind === "face";
+    if (this.faceHover.visible) {
+      this.faceHover.position.copy(hit.direction).multiplyScalar(VIEW_CUBE_HALF_SIZE + 0.008);
+      this.faceHover.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 0, 1),
+        hit.direction,
+      );
+    }
+
+    const isHovering = Boolean(hit);
+    this.canvas.classList.toggle("is-hovering", isHovering);
+    this.container?.classList.toggle("is-hovering", isHovering);
+    if (hit && this.label) this.label.textContent = hit.name;
+  }
+
+  selectHit(hit) {
+    this.onSelectView?.(hit.direction.clone(), hit.name);
+    this.announce(hit.name);
+  }
+
+  announce(name) {
+    window.clearTimeout(this.announcementTimer);
+    if (this.label) this.label.textContent = name;
+    this.container?.classList.add("is-announcing");
+    this.announcementTimer = window.setTimeout(() => {
+      this.container?.classList.remove("is-announcing");
+      if (this.hovered && this.label) this.label.textContent = this.hovered.name;
+    }, 1100);
+  }
+
+  handleKeydown(event) {
+    const shortcuts = {
+      t: "Top",
+      f: "Front",
+      r: "Right",
+      l: "Left",
+      b: "Back",
+    };
+    if (event.key === "Home" || event.key.toLowerCase() === "h") {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onHome?.();
+      this.announce("Home");
+      return;
+    }
+
+    const faceName = event.key === "B" ? "Bottom" : shortcuts[event.key.toLowerCase()];
+    const face = this.faceEntries.find((entry) => entry.name === faceName);
+    if (!face) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.onSelectView?.(face.direction.clone(), face.name);
+    this.announce(face.name);
+  }
+
+  updateTheme() {
+    const darkTheme = document.documentElement.dataset.theme === "dark";
+    const rootStyle = getComputedStyle(document.documentElement);
+    const value = (name) => rootStyle.getPropertyValue(name).trim();
+    const faceColors = darkTheme
+      ? ["#707070", "#5e5e5e", "#797979", "#555555", "#888888", "#4e4e4e"]
+      : ["#d0d0d0", "#bcbcbc", "#dedede", "#b4b4b4", "#ececec", "#aaaaaa"];
+    const textColor = value("--text-primary");
+    const borderColor = value("--border-strong");
+
+    this.faceEntries.forEach((face, index) => {
+      const context = face.textureCanvas.getContext("2d");
+      context.clearRect(0, 0, 256, 256);
+      context.fillStyle = faceColors[index];
+      context.fillRect(0, 0, 256, 256);
+      context.strokeStyle = borderColor;
+      context.lineWidth = 12;
+      context.strokeRect(6, 6, 244, 244);
+      context.fillStyle = textColor;
+      context.font = `750 ${face.name.length > 5 ? 29 : 34}px Inter, Arial, sans-serif`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(face.name.toUpperCase(), 128, 132);
+      face.texture.needsUpdate = true;
+    });
+
+    this.cornerColor = darkTheme ? "#969696" : "#858585";
+    this.hoverColor = value("--accent-strong");
+    for (const corner of this.cornerTargets) corner.material.color.setStyle(this.cornerColor);
+    this.edgeMaterial.color.setStyle(darkTheme ? "#dedede" : "#4f4f4f");
+    this.faceHoverMaterial.color.setStyle(this.hoverColor);
+  }
+
+  resize() {
+    const width = Math.max(1, Math.round(this.canvas.clientWidth));
+    const height = Math.max(1, Math.round(this.canvas.clientHeight));
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    if (
+      width === this.renderSize.width &&
+      height === this.renderSize.height &&
+      pixelRatio === this.renderSize.pixelRatio
+    ) {
+      return;
+    }
+    this.renderSize = { width, height, pixelRatio };
+    this.renderer.setPixelRatio(pixelRatio);
+    this.renderer.setSize(width, height, false);
+  }
+
+  render(mainCameraQuaternion) {
+    this.resize();
+    this.cubeGroup.quaternion.copy(mainCameraQuaternion).invert();
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
 class ThreeViewport {
   constructor(targetCanvas) {
     this.canvas = targetCanvas;
@@ -1161,6 +1454,7 @@ class ThreeViewport {
     this.controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE;
     this.controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
     this.controls.listenToKeyEvents(window);
+    this.viewTransition = null;
 
     this.loaders = {
       obj: new OBJLoader(),
@@ -1174,6 +1468,7 @@ class ThreeViewport {
     this.createModel();
     this.createSnapPreview();
     this.createTransformGizmo();
+    this.viewCube = this.createViewCubeNavigator();
 
     this.compactLayout = this.canvas.clientWidth <= 700;
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -1184,6 +1479,7 @@ class ThreeViewport {
     this.canvas.addEventListener(
       "pointerdown",
       (event) => {
+        if (event.button === 1 || event.button === 2) this.cancelViewTransition();
         this.activePointerButton = event.button;
         if (event.button === 1) {
           this.syncOrbitTargetToModelCenter();
@@ -1272,6 +1568,21 @@ class ThreeViewport {
     this.applyTransform();
     this.updateTheme();
     this.renderer.setAnimationLoop(() => this.render());
+  }
+
+  createViewCubeNavigator() {
+    const targetCanvas = document.querySelector("#viewCubeCanvas");
+    if (!targetCanvas) return null;
+    try {
+      return new ViewCubeNavigator(targetCanvas, {
+        onSelectView: (direction, name) => this.animateToView(direction, name),
+        onHome: () => this.fitView(),
+      });
+    } catch (error) {
+      console.warn("View cube could not be initialized:", error);
+      document.querySelector("#viewCube")?.setAttribute("hidden", "");
+      return null;
+    }
   }
 
   createLights() {
@@ -3876,7 +4187,82 @@ class ThreeViewport {
     return true;
   }
 
+  cancelViewTransition() {
+    if (!this.viewTransition) return;
+    this.viewTransition = null;
+    this.controls.enabled = !this.transformControls?.dragging;
+    this.canvas.classList.remove("is-view-transitioning");
+  }
+
+  animateToView(targetDirection) {
+    const center = this.getModelCenterInfo()?.world;
+    if (!center) return;
+
+    this.cancelViewTransition();
+    const startTarget = this.controls.target.clone();
+    const startOffset = this.camera.position.clone().sub(startTarget);
+    let distance = startOffset.length();
+    if (!Number.isFinite(distance) || distance < 0.001) {
+      distance = Math.max(this.getWorldBounds().getBoundingSphere(new THREE.Sphere()).radius * 3, 1);
+      startOffset.copy(DEFAULT_VIEW_DIRECTION).multiplyScalar(distance);
+    }
+
+    const startDirection = startOffset.clone().normalize();
+    const endDirection = targetDirection.clone().normalize();
+    const directionDelta = new THREE.Quaternion().setFromUnitVectors(
+      startDirection,
+      endDirection,
+    );
+    this.viewTransition = {
+      startedAt: performance.now(),
+      duration: 240,
+      startTarget,
+      endTarget: center.clone(),
+      startDirection,
+      directionDelta,
+      distance,
+    };
+    this.controls.enabled = false;
+    this.canvas.classList.add("is-view-transitioning");
+  }
+
+  updateViewTransition(time) {
+    const transition = this.viewTransition;
+    if (!transition) return false;
+
+    const progress = THREE.MathUtils.clamp(
+      (time - transition.startedAt) / transition.duration,
+      0,
+      1,
+    );
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const rotation = new THREE.Quaternion().slerpQuaternions(
+      new THREE.Quaternion(),
+      transition.directionDelta,
+      eased,
+    );
+    const direction = transition.startDirection.clone().applyQuaternion(rotation).normalize();
+    const target = transition.startTarget.clone().lerp(transition.endTarget, eased);
+
+    this.controls.target.copy(target);
+    this.camera.position.copy(target).addScaledVector(direction, transition.distance);
+    this.camera.lookAt(target);
+
+    if (progress < 1) return true;
+
+    this.viewTransition = null;
+    this.controls.target.copy(transition.endTarget);
+    this.camera.position
+      .copy(transition.endTarget)
+      .addScaledVector(direction, transition.distance);
+    this.controls.enabled = !this.transformControls?.dragging;
+    this.controls.update();
+    this.canvas.classList.remove("is-view-transitioning");
+    return false;
+  }
+
   fitView() {
+    this.cancelViewTransition();
     const bounds = this.getWorldBounds();
     if (bounds.isEmpty()) return;
 
@@ -4018,11 +4404,14 @@ class ThreeViewport {
 
     if (this.boundsHelper) this.boundsHelper.material.color.setStyle(value("--accent"));
     this.updateAlignmentPlaneVisuals();
+    this.viewCube?.updateTheme();
   }
 
   render() {
-    this.controls.update();
+    const transitioning = this.updateViewTransition(performance.now());
+    if (!transitioning) this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    this.viewCube?.render(this.camera.quaternion);
   }
 }
 

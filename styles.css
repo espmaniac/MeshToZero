@@ -2296,65 +2296,79 @@ input:focus-visible {
   background: var(--border-strong);
 }
 
-.axis-gizmo {
+.view-cube {
   position: absolute;
-  z-index: 5;
+  z-index: 18;
+  right: 28px;
   bottom: 25px;
-  left: 28px;
-  width: 96px;
-  height: 96px;
+  display: grid;
+  width: 112px;
+  height: 138px;
+  justify-items: center;
   user-select: none;
 }
 
-.axis-gizmo svg {
+.view-cube-canvas {
   display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 760;
+  width: 112px;
+  height: 112px;
+  background: transparent;
+  cursor: default;
+  touch-action: none;
 }
 
-.gizmo-origin {
-  fill: var(--text-primary);
+.view-cube-canvas.is-hovering {
+  cursor: pointer;
 }
 
-.gizmo-x,
-.gizmo-y,
-.gizmo-z {
-  fill: none;
-  stroke-width: 2.4;
+.view-cube-label {
+  position: absolute;
+  top: -23px;
+  right: 50%;
+  max-width: 104px;
+  padding: 2px 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  background: var(--surface-solid);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  opacity: 0;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  transform: translateX(50%);
+  transition: opacity 100ms ease;
+  white-space: nowrap;
 }
 
-.gizmo-x,
-.gizmo-x-text {
-  stroke: #f04444;
-  fill: #f04444;
+.view-cube.is-hovering .view-cube-label,
+.view-cube.is-announcing .view-cube-label {
+  opacity: 1;
 }
 
-.gizmo-y,
-.gizmo-y-text {
-  stroke: #32b85c;
-  fill: #32b85c;
+.view-cube-home {
+  display: grid;
+  width: 28px;
+  height: 24px;
+  margin-top: -1px;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  background: var(--surface-solid);
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 
-.gizmo-z,
-.gizmo-z-text {
-  stroke: #2784f5;
-  fill: #2784f5;
+.view-cube-home:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
-.gizmo-x-fill {
-  fill: #f04444;
-}
-
-.gizmo-y-fill {
-  fill: #32b85c;
-}
-
-.gizmo-z-fill {
-  fill: #2784f5;
+.view-cube-home .icon {
+  width: 15px;
+  height: 15px;
 }
 
 .model-status {
@@ -2562,9 +2576,9 @@ input:focus-visible {
     transform: none;
   }
 
-  .axis-gizmo {
+  .view-cube {
     bottom: 18px;
-    left: 18px;
+    right: 18px;
   }
 }
 
@@ -2766,11 +2780,16 @@ input:focus-visible {
     height: 22px;
   }
 
-  .axis-gizmo {
+  .view-cube {
+    right: 12px;
     bottom: 562px;
-    left: 12px;
-    width: 78px;
-    height: 78px;
+    width: 88px;
+    height: 112px;
+  }
+
+  .view-cube-canvas {
+    width: 88px;
+    height: 88px;
   }
 
   .model-status {
@@ -3923,11 +3942,9 @@ body {
   height: 20px;
 }
 
-.axis-gizmo {
+.view-cube {
+  right: calc(var(--cad-inspector-width) + 18px);
   bottom: calc(var(--cad-statusbar-height) + 13px);
-  left: calc(var(--cad-left-width) + 18px);
-  width: 80px;
-  height: 80px;
 }
 
 .model-status {
@@ -4125,8 +4142,20 @@ body {
     max-width: calc(100% - var(--cad-tool-width) - 236px);
   }
 
-  .axis-gizmo {
-    left: calc(var(--cad-tool-width) + 9px);
+  .view-cube {
+    right: 12px;
+    bottom: calc(var(--cad-statusbar-height) + min(320px, 44svh) + 12px);
+    width: 88px;
+    height: 112px;
+  }
+
+  .right-rail.has-active-workbench ~ .view-cube {
+    bottom: calc(var(--cad-statusbar-height) + min(430px, 58svh) + 12px);
+  }
+
+  .view-cube-canvas {
+    width: 88px;
+    height: 88px;
   }
 
   .cad-statusbar {
