@@ -1575,7 +1575,7 @@ class ThreeViewport {
     if (!targetCanvas) return null;
     try {
       return new ViewCubeNavigator(targetCanvas, {
-        onSelectView: (direction, name) => this.animateToView(direction, name),
+        onSelectView: (direction) => this.animateToView(direction),
         onHome: () => this.fitView(),
       });
     } catch (error) {
@@ -4188,8 +4188,10 @@ class ThreeViewport {
   }
 
   cancelViewTransition() {
-    if (!this.viewTransition) return;
+    const transition = this.viewTransition;
+    if (!transition) return;
     this.viewTransition = null;
+    this.controls.dampingFactor = transition.dampingFactor;
     this.controls.enabled = !this.transformControls?.dragging;
     this.canvas.classList.remove("is-view-transitioning");
   }
@@ -4221,7 +4223,9 @@ class ThreeViewport {
       startDirection,
       directionDelta,
       distance,
+      dampingFactor: this.controls.dampingFactor,
     };
+    this.controls.dampingFactor = Math.max(this.controls.dampingFactor, 0.35);
     this.controls.enabled = false;
     this.canvas.classList.add("is-view-transitioning");
   }
@@ -4250,13 +4254,15 @@ class ThreeViewport {
 
     if (progress < 1) return true;
 
+    for (let index = 0; index < 24; index += 1) this.controls.update();
+    this.controls.dampingFactor = transition.dampingFactor;
     this.viewTransition = null;
     this.controls.target.copy(transition.endTarget);
     this.camera.position
       .copy(transition.endTarget)
       .addScaledVector(direction, transition.distance);
+    this.camera.lookAt(transition.endTarget);
     this.controls.enabled = !this.transformControls?.dragging;
-    this.controls.update();
     this.canvas.classList.remove("is-view-transitioning");
     return false;
   }
@@ -4408,8 +4414,12 @@ class ThreeViewport {
   }
 
   render() {
-    const transitioning = this.updateViewTransition(performance.now());
-    if (!transitioning) this.controls.update();
+    if (this.viewTransition) {
+      this.controls.update();
+      this.updateViewTransition(performance.now());
+    } else {
+      this.controls.update();
+    }
     this.renderer.render(this.scene, this.camera);
     this.viewCube?.render(this.camera.quaternion);
   }
