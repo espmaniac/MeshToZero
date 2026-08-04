@@ -820,17 +820,24 @@
         <footer class="cad-statusbar" role="group" aria-label="Coordinate space and snapping">
           <div class="status-space-slot" id="statusSpaceSlot"></div>
           <div class="status-snap-slot" id="statusSnapSlot"></div>
-          <div class="status-snap-modes" role="group" aria-label="Available snap references">
+          <div class="status-snap-modes" role="group" aria-label="Object snap modes">
             <span>SNAP</span>
-            <span class="is-active">Grid</span>
-            <span>Point</span>
-            <span>Center</span>
-            <span>Face</span>
-            <span>Edge</span>
+            <button class="status-snap-button" type="button" data-snap-mode="grid" aria-label="Toggle grid snap" title="Grid — snap translations to the grid step" aria-pressed="false">Grid</button>
+            <button class="status-snap-button" type="button" data-snap-mode="vertex" aria-label="Toggle vertex snap" title="Vertex — snap to mesh and point-cloud vertices" aria-pressed="false">Vertex</button>
+            <button class="status-snap-button" type="button" data-snap-mode="midpoint" aria-label="Toggle midpoint snap" title="Midpoint — snap to the middle of an edge" aria-pressed="false">Midpoint</button>
+            <button class="status-snap-button" type="button" data-snap-mode="edge" aria-label="Toggle edge snap" title="Edge — snap to the nearest point on an edge" aria-pressed="false">Edge</button>
+            <button class="status-snap-button" type="button" data-snap-mode="face" aria-label="Toggle face snap" title="Face — snap to the model surface" aria-pressed="false">Face</button>
+            <button class="status-snap-button" type="button" data-snap-mode="center" aria-label="Toggle center snap" title="Center — snap to circle, bounds, and model centers" aria-pressed="false">Center</button>
+            <button class="status-snap-button" type="button" data-snap-mode="intersection" aria-label="Toggle plane intersection snap" title="Intersection — snap to the intersection of visible planes" aria-pressed="false">Intersection</button>
           </div>
           <div class="status-help-slot" id="statusHelpSlot"></div>
           <output class="status-position" id="statusPosition" aria-label="Model position">X 0.000 · Y 0.000 · Z 0.000 mm</output>
         </footer>
+
+        <div class="snap-hint" id="snapHint" role="status" aria-live="polite" hidden>
+          <span aria-hidden="true"></span>
+          <strong id="snapHintType">Vertex</strong>
+        </div>
 
         <div class="view-toolbar" role="toolbar" aria-label="Viewport controls">
           <div class="history-actions" role="group" aria-label="Edit history">

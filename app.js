@@ -19,6 +19,8 @@ const PRINCIPAL_AXIS_SEPARATION_RATIO = 1.05;
 const LOCAL_PLANE_MAX_NEIGHBORS = 320;
 const LOCAL_PLANE_FIT_NEIGHBORS = 128;
 const LOCAL_PLANE_RANSAC_NEIGHBORS = 28;
+const SNAP_PIXEL_TOLERANCE = 18;
+const SNAP_TYPES = ["vertex", "midpoint", "edge", "face", "center", "intersection"];
 const SUPPORTED_EXTENSIONS = new Set(["obj", "ply", "stl"]);
 const DEFAULT_VIEW_DIRECTION = new THREE.Vector3(0.55, 0.62, 0.56).normalize();
 const PLANE_COLORS = [0x5a5a5a, 0x168aad, 0xe07a2f, 0x2f9d62, 0xd94f70, 0x4f83a8];
@@ -93,6 +95,7 @@ const state = {
     gridStep: 1,
     angleSnap: false,
     angleStep: 15,
+    objectSnap: Object.fromEntries(SNAP_TYPES.map((type) => [type, false])),
   },
   model: {
     position: { x: 0, y: 0, z: 0 },
@@ -970,6 +973,146 @@ function chooseAlignmentPlaneHit(sourceHits, targetHits) {
   return null;
 }
 
+function getPlaneIntersectionLine(firstPlane, secondPlane) {
+  const firstNormal = firstPlane.normal.clone().normalize();
+  const secondNormal = secondPlane.normal.clone().normalize();
+  const direction = firstNormal.clone().cross(secondNormal);
+  const denominator = direction.lengthSq();
+  if (denominator <= GEOMETRY_EPSILON ** 2) return null;
+
+  const firstDistance = firstNormal.dot(firstPlane.origin);
+  const secondDistance = secondNormal.dot(secondPlane.origin);
+  const point = secondNormal
+    .clone()
+    .cross(direction)
+    .multiplyScalar(firstDistance)
+    .add(direction.clone().cross(firstNormal).multiplyScalar(secondDistance))
+    .divideScalar(denominator);
+  return { point, direction: direction.normalize() };
+}
+
+function getClosestPointOnLineToRay(ray, linePoint, lineDirection) {
+  const rayDirection = ray.direction.clone().normalize();
+  const direction = lineDirection.clone().normalize();
+  const offset = ray.origin.clone().sub(linePoint);
+  const parallel = rayDirection.dot(direction);
+  const rayOffset = rayDirection.dot(offset);
+  const lineOffset = direction.dot(offset);
+  const denominator = 1 - parallel * parallel;
+  let rayDistance = 0;
+  let lineDistance = lineOffset;
+
+  if (denominator > GEOMETRY_EPSILON ** 2) {
+    rayDistance = (parallel * lineOffset - rayOffset) / denominator;
+    lineDistance = (lineOffset - parallel * rayOffset) / denominator;
+    if (rayDistance < 0) {
+      rayDistance = 0;
+      lineDistance = lineOffset;
+    }
+  }
+
+  return {
+    point: linePoint.clone().addScaledVector(direction, lineDistance),
+    rayPoint: ray.origin.clone().addScaledVector(rayDirection, rayDistance),
+  };
+}
+
+function constrainSnapPoint(currentPoint, targetPoint, axis, space, quaternion) {
+  const axes = ["X", "Y", "Z"].filter((name) => axis?.includes(name));
+  if (!axes.length) return currentPoint.clone();
+  if (axes.length === 3) return targetPoint.clone();
+
+  if (space !== "local") {
+    const result = currentPoint.clone();
+    for (const name of axes) result[name.toLowerCase()] = targetPoint[name.toLowerCase()];
+    return result;
+  }
+
+  const basis = {
+    X: new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion),
+    Y: new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion),
+    Z: new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion),
+  };
+  const delta = targetPoint.clone().sub(currentPoint);
+  const result = currentPoint.clone();
+  for (const name of axes) result.addScaledVector(basis[name], delta.dot(basis[name]));
+  return result;
+}
+
+function solveLinear3x3(matrix, values) {
+  const rows = matrix.map((row, index) => [...row, values[index]]);
+  for (let column = 0; column < 3; column += 1) {
+    let pivot = column;
+    for (let row = column + 1; row < 3; row += 1) {
+      if (Math.abs(rows[row][column]) > Math.abs(rows[pivot][column])) pivot = row;
+    }
+    if (Math.abs(rows[pivot][column]) <= GEOMETRY_EPSILON) return null;
+    [rows[column], rows[pivot]] = [rows[pivot], rows[column]];
+    const divisor = rows[column][column];
+    for (let index = column; index < 4; index += 1) rows[column][index] /= divisor;
+    for (let row = 0; row < 3; row += 1) {
+      if (row === column) continue;
+      const factor = rows[row][column];
+      for (let index = column; index < 4; index += 1) {
+        rows[row][index] -= factor * rows[column][index];
+      }
+    }
+  }
+  return rows.map((row) => row[3]);
+}
+
+function fitCircleToPoints(points) {
+  if (points.length < 6) return null;
+  let plane;
+  try {
+    plane = fitPlaneToPoints(points);
+  } catch {
+    return null;
+  }
+  const coordinates = points.map((point) => {
+    const delta = point.clone().sub(plane.origin);
+    return { x: delta.dot(plane.xAxis), y: delta.dot(plane.yAxis) };
+  });
+  const normalMatrix = [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+  ];
+  const normalValues = [0, 0, 0];
+  for (const { x, y } of coordinates) {
+    const row = [x, y, 1];
+    const target = -(x * x + y * y);
+    for (let first = 0; first < 3; first += 1) {
+      normalValues[first] += row[first] * target;
+      for (let second = 0; second < 3; second += 1) {
+        normalMatrix[first][second] += row[first] * row[second];
+      }
+    }
+  }
+  const solution = solveLinear3x3(normalMatrix, normalValues);
+  if (!solution) return null;
+  const centerX = -solution[0] / 2;
+  const centerY = -solution[1] / 2;
+  const radiusSquared = centerX * centerX + centerY * centerY - solution[2];
+  if (radiusSquared <= GEOMETRY_EPSILON ** 2) return null;
+  const radius = Math.sqrt(radiusSquared);
+  const radialError = Math.max(
+    ...coordinates.map(({ x, y }) => Math.abs(Math.hypot(x - centerX, y - centerY) - radius)),
+  );
+  const planarError = Math.max(
+    ...points.map((point) => Math.abs(point.clone().sub(plane.origin).dot(plane.normal))),
+  );
+  if (radialError > radius * 0.035 || planarError > radius * 0.02) return null;
+  return {
+    center: plane.origin
+      .clone()
+      .addScaledVector(plane.xAxis, centerX)
+      .addScaledVector(plane.yAxis, centerY),
+    radius,
+    normal: plane.normal,
+  };
+}
+
 class ThreeViewport {
   constructor(targetCanvas) {
     this.canvas = targetCanvas;
@@ -1007,6 +1150,7 @@ class ThreeViewport {
     this.createGrid();
     this.createGroundDetails();
     this.createModel();
+    this.createSnapPreview();
     this.createTransformGizmo();
 
     this.compactLayout = this.canvas.clientWidth <= 700;
@@ -1055,11 +1199,20 @@ class ThreeViewport {
       { capture: true },
     );
     this.canvas.addEventListener("pointermove", (event) => {
-      if (!this.alignmentPlanePicking.enabled || event.buttons !== 0) return;
-      this.setAlignmentPlaneHover(this.getAlignmentPlaneHit(event));
+      if (this.alignmentPlanePicking.enabled && event.buttons === 0) {
+        this.setAlignmentPlaneHover(this.getAlignmentPlaneHit(event));
+      }
+      if (this.transformControls.dragging) {
+        if (this.transformControls.mode === "translate") {
+          this.updateSnapFromPointer(event, true);
+        }
+      } else if (event.buttons === 0 && !this.alignmentPlanePicking.enabled) {
+        this.updateSnapFromPointer(event, false);
+      }
     });
     this.canvas.addEventListener("pointerleave", () => {
       this.setAlignmentPlaneHover(null);
+      this.clearSnapPreview();
     });
     this.canvas.addEventListener("contextmenu", (event) => event.preventDefault());
     this.controls.addEventListener("start", () => {
@@ -1224,6 +1377,26 @@ class ThreeViewport {
     this.scene.add(this.originMarker);
   }
 
+  createSnapPreview() {
+    this.snapHint = document.querySelector("#snapHint");
+    this.snapHintType = document.querySelector("#snapHintType");
+    this.snapMarkerMaterial = new THREE.MeshBasicMaterial({
+      color: 0x2aaee6,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.snapMarker = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 18, 12),
+      this.snapMarkerMaterial,
+    );
+    this.snapMarker.name = "CAD snap preview";
+    this.snapMarker.renderOrder = 30;
+    this.snapMarker.visible = false;
+    this.scene.add(this.snapMarker);
+    this.objectSnapModes = Object.fromEntries(SNAP_TYPES.map((type) => [type, false]));
+    this.circularSnapCache = new WeakMap();
+  }
+
   createModelCenterMarker() {
     this.modelCenterMarker = new THREE.Group();
     this.modelCenterMarker.name = "Automatic model center";
@@ -1339,6 +1512,7 @@ class ThreeViewport {
       this.controls.enabled = false;
       this.selectionPointerStart = null;
       this.canvas.classList.add("is-transforming");
+      this.clearSnapPreview();
       this.onTransformGizmoStart?.(event.mode);
     });
     this.transformControls.addEventListener("objectChange", () => {
@@ -1348,6 +1522,7 @@ class ThreeViewport {
     this.transformControls.addEventListener("mouseUp", (event) => {
       this.controls.enabled = true;
       this.canvas.classList.remove("is-transforming");
+      this.clearSnapPreview();
       this.onTransformGizmoEnd?.(event.mode);
     });
 
@@ -1365,6 +1540,10 @@ class ThreeViewport {
     this.transformControls.setRotationSnap(
       settings.angleSnap ? THREE.MathUtils.degToRad(angleStep) : null,
     );
+    this.objectSnapModes = Object.fromEntries(
+      SNAP_TYPES.map((type) => [type, Boolean(settings.objectSnap?.[type])]),
+    );
+    if (!this.hasObjectSnapMode()) this.clearSnapPreview();
   }
 
   updateTransformGizmoAvailability() {
@@ -1755,6 +1934,384 @@ class ThreeViewport {
     return true;
   }
 
+  hasObjectSnapMode(type = null) {
+    if (type) return Boolean(this.objectSnapModes?.[type]);
+    return SNAP_TYPES.some((candidate) => this.objectSnapModes?.[candidate]);
+  }
+
+  getSnapScreenDistance(point, event) {
+    const projected = point.clone().project(this.camera);
+    if (!Number.isFinite(projected.x) || projected.z < -1 || projected.z > 1) return Infinity;
+    const rect = this.canvas.getBoundingClientRect();
+    const screenX = rect.left + ((projected.x + 1) / 2) * rect.width;
+    const screenY = rect.top + ((1 - projected.y) / 2) * rect.height;
+    return Math.hypot(screenX - event.clientX, screenY - event.clientY);
+  }
+
+  getTriangleWorldPoints(intersection) {
+    const position = intersection?.object?.geometry?.getAttribute("position");
+    if (!intersection?.face || !position) return [];
+    intersection.object.updateMatrixWorld(true);
+    return [intersection.face.a, intersection.face.b, intersection.face.c].map((index) =>
+      new THREE.Vector3()
+        .fromBufferAttribute(position, index)
+        .applyMatrix4(intersection.object.matrixWorld),
+    );
+  }
+
+  getEdgeHitSegment(intersection) {
+    const position = intersection?.object?.geometry?.getAttribute("position");
+    if (!position || !Number.isInteger(intersection.index)) return null;
+    let startIndex = Math.max(0, Math.min(position.count - 2, intersection.index));
+    startIndex -= startIndex % 2;
+    intersection.object.updateMatrixWorld(true);
+    return [startIndex, startIndex + 1].map((index) =>
+      new THREE.Vector3()
+        .fromBufferAttribute(position, index)
+        .applyMatrix4(intersection.object.matrixWorld),
+    );
+  }
+
+  getCircularSnapCenters(lineObject) {
+    const geometry = lineObject?.geometry;
+    if (!geometry) return [];
+    const cached = this.circularSnapCache.get(geometry);
+    if (cached) return cached;
+    const position = geometry.getAttribute("position");
+    if (!position || position.count < 12) {
+      this.circularSnapCache.set(geometry, []);
+      return [];
+    }
+
+    const tolerance = Math.max(this.getConstructionVisualScale() * 1e-7, 1e-9);
+    const nodes = new Map();
+    const keyFor = (point) =>
+      [point.x, point.y, point.z]
+        .map((value) => Math.round(value / tolerance))
+        .join("|");
+    const addNode = (point) => {
+      const key = keyFor(point);
+      if (!nodes.has(key)) nodes.set(key, { point: point.clone(), neighbors: new Set() });
+      return key;
+    };
+    for (let index = 0; index + 1 < position.count; index += 2) {
+      const first = new THREE.Vector3().fromBufferAttribute(position, index);
+      const second = new THREE.Vector3().fromBufferAttribute(position, index + 1);
+      const firstKey = addNode(first);
+      const secondKey = addNode(second);
+      if (firstKey === secondKey) continue;
+      nodes.get(firstKey).neighbors.add(secondKey);
+      nodes.get(secondKey).neighbors.add(firstKey);
+    }
+
+    const visited = new Set();
+    const parent = new Map();
+    const depth = new Map();
+    const cycleKeys = new Set();
+    const cycles = [];
+    for (const start of nodes.keys()) {
+      if (visited.has(start) || cycles.length >= 256) continue;
+      visited.add(start);
+      parent.set(start, null);
+      depth.set(start, 0);
+      const stack = [
+        {
+          key: start,
+          iterator: nodes.get(start).neighbors.values(),
+        },
+      ];
+      while (stack.length && cycles.length < 256) {
+        const frame = stack.at(-1);
+        const next = frame.iterator.next();
+        if (next.done) {
+          stack.pop();
+          continue;
+        }
+        const neighbor = next.value;
+        if (neighbor === parent.get(frame.key)) continue;
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          parent.set(neighbor, frame.key);
+          depth.set(neighbor, depth.get(frame.key) + 1);
+          stack.push({
+            key: neighbor,
+            iterator: nodes.get(neighbor).neighbors.values(),
+          });
+          continue;
+        }
+        if (depth.get(neighbor) >= depth.get(frame.key)) continue;
+        const cycle = [frame.key];
+        let cursor = frame.key;
+        while (
+          cursor !== neighbor &&
+          parent.get(cursor) !== null &&
+          cycle.length <= 256
+        ) {
+          cursor = parent.get(cursor);
+          cycle.push(cursor);
+        }
+        if (cursor !== neighbor || cycle.length < 6 || cycle.length > 256) continue;
+        const signature = [...cycle].sort().join(";");
+        if (cycleKeys.has(signature)) continue;
+        cycleKeys.add(signature);
+        cycles.push(cycle.map((nodeKey) => nodes.get(nodeKey).point));
+      }
+    }
+
+    const circles = [];
+    for (const cycle of cycles) {
+      const circle = fitCircleToPoints(cycle);
+      if (!circle) continue;
+      if (
+        circles.some(
+          (candidate) =>
+            candidate.center.distanceTo(circle.center) <=
+              Math.max(candidate.radius, circle.radius) * 0.02,
+        )
+      ) {
+        continue;
+      }
+      circles.push(circle);
+    }
+    this.circularSnapCache.set(geometry, circles);
+    return circles;
+  }
+
+  getWorldSnapPlanes() {
+    const visibleWorldPlanes = {
+      "world-xy": state.originPlanes.top,
+      "world-yz": state.originPlanes.right,
+      "world-xz": state.originPlanes.front,
+    };
+    return this.getReferencePlanes()
+      .filter((plane) =>
+        plane.builtIn ? visibleWorldPlanes[plane.id] : plane.visible && plane.object?.visible,
+      )
+      .map((plane) => ({
+        ...this.getPlaneInSpace(plane, "world"),
+        sourceSpace: plane.space,
+      }));
+  }
+
+  getSnapCandidate(event) {
+    if (!this.renderModel || !this.hasObjectSnapMode()) return null;
+    if (!this.setRaycasterFromPointerEvent(event)) return null;
+    this.scene.updateMatrixWorld(true);
+    const worldScale = this.modelRoot.getWorldScale(new THREE.Vector3());
+    const maximumScale = Math.max(Math.abs(worldScale.x), Math.abs(worldScale.y), Math.abs(worldScale.z));
+    this.raycaster.params.Points.threshold =
+      this.getConstructionVisualScale() * maximumScale * 0.025;
+    this.raycaster.params.Line.threshold = Math.max(
+      this.getConstructionVisualScale() * maximumScale * 0.012,
+      this.referenceScale * 0.015,
+    );
+
+    const surfaceHit = this.raycaster.intersectObjects(
+      this.renderModel.surfaceGroup.children,
+      false,
+    )[0];
+    const edgeHit = this.raycaster.intersectObjects(
+      this.renderModel.edgeGroup.children,
+      false,
+    )[0];
+    const pointHit = this.raycaster.intersectObjects(
+      this.renderModel.pointCloudGroup.children,
+      false,
+    )[0];
+    const candidates = [];
+    const priorities = { vertex: 0, midpoint: 1, center: 1, intersection: 1, edge: 2, face: 3 };
+    const addCandidate = (
+      type,
+      point,
+      label,
+      normal = null,
+      movesWithModel = true,
+      triggerPoint = point,
+    ) => {
+      if (!this.hasObjectSnapMode(type) || !point) return;
+      const screenDistance = this.getSnapScreenDistance(triggerPoint, event);
+      if (screenDistance > SNAP_PIXEL_TOLERANCE) return;
+      candidates.push({
+        type,
+        point: point.clone(),
+        normal: normal?.clone() || null,
+        label,
+        movesWithModel,
+        screenDistance,
+        priority: priorities[type],
+      });
+    };
+
+    const triangle = this.getTriangleWorldPoints(surfaceHit);
+    let faceNormal = null;
+    if (surfaceHit?.face) {
+      faceNormal = surfaceHit.face.normal
+        .clone()
+        .applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(surfaceHit.object.matrixWorld))
+        .normalize();
+      addCandidate("face", surfaceHit.point, "Face", faceNormal);
+    }
+
+    for (const point of triangle) addCandidate("vertex", point, "Vertex");
+    if (pointHit) addCandidate("vertex", pointHit.point, "Vertex");
+
+    let edgeSegments = [];
+    const featureSegment = this.getEdgeHitSegment(edgeHit);
+    if (featureSegment) edgeSegments.push(featureSegment);
+    if (!edgeSegments.length && triangle.length === 3) {
+      edgeSegments = [
+        [triangle[0], triangle[1]],
+        [triangle[1], triangle[2]],
+        [triangle[2], triangle[0]],
+      ];
+    }
+    for (const [start, end] of edgeSegments) {
+      addCandidate("vertex", start, "Vertex");
+      addCandidate("vertex", end, "Vertex");
+      addCandidate("midpoint", start.clone().lerp(end, 0.5), "Midpoint");
+      const seed = edgeHit?.point || surfaceHit?.point;
+      if (seed) {
+        addCandidate(
+          "edge",
+          new THREE.Line3(start, end).closestPointToPoint(seed, true, new THREE.Vector3()),
+          "Edge",
+        );
+      }
+    }
+
+    if (this.hasObjectSnapMode("center")) {
+      const modelCenter = this.getModelCenterInfo()?.world;
+      const boundsCenter = this.getWorldBounds().getCenter(new THREE.Vector3());
+      addCandidate("center", modelCenter, "Model center");
+      if (!modelCenter || boundsCenter.distanceTo(modelCenter) > this.getConstructionVisualScale() * 1e-7) {
+        addCandidate("center", boundsCenter, "Bounds center");
+      }
+      for (const lineObject of this.renderModel.edgeGroup.children) {
+        lineObject.updateMatrixWorld(true);
+        for (const circle of this.getCircularSnapCenters(lineObject)) {
+          const worldCenter = circle.center.clone().applyMatrix4(lineObject.matrixWorld);
+          let triggerPoint = worldCenter;
+          if (edgeHit?.object === lineObject) {
+            const localHit = edgeHit.point
+              .clone()
+              .applyMatrix4(lineObject.matrixWorld.clone().invert());
+            const centerDelta = localHit.clone().sub(circle.center);
+            const planeDistance = Math.abs(centerDelta.dot(circle.normal));
+            const radialDistance = centerDelta
+              .addScaledVector(circle.normal, -centerDelta.dot(circle.normal))
+              .length();
+            const circleTolerance = Math.max(
+              circle.radius * 0.035,
+              this.getConstructionVisualScale() * 1e-5,
+            );
+            if (
+              planeDistance <= circleTolerance &&
+              Math.abs(radialDistance - circle.radius) <= circleTolerance
+            ) {
+              triggerPoint = edgeHit.point;
+            }
+          }
+          addCandidate(
+            "center",
+            worldCenter,
+            "Circle center",
+            circle.normal
+              .clone()
+              .applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(lineObject.matrixWorld))
+              .normalize(),
+            true,
+            triggerPoint,
+          );
+        }
+      }
+    }
+
+    if (this.hasObjectSnapMode("intersection")) {
+      const planes = this.getWorldSnapPlanes();
+      for (let first = 0; first < planes.length - 1; first += 1) {
+        for (let second = first + 1; second < planes.length; second += 1) {
+          const line = getPlaneIntersectionLine(planes[first], planes[second]);
+          if (!line) continue;
+          const closest = getClosestPointOnLineToRay(
+            this.raycaster.ray,
+            line.point,
+            line.direction,
+          );
+          addCandidate(
+            "intersection",
+            closest.point,
+            planes[first].name + " × " + planes[second].name,
+            null,
+            planes[first].sourceSpace === "model" ||
+              planes[second].sourceSpace === "model",
+          );
+        }
+      }
+    }
+
+    candidates.sort(
+      (left, right) =>
+        left.priority - right.priority || left.screenDistance - right.screenDistance,
+    );
+    return candidates[0] || null;
+  }
+
+  showSnapPreview(candidate, event) {
+    if (!candidate) {
+      this.clearSnapPreview();
+      return;
+    }
+    const worldSize = this.getWorldBounds().getSize(new THREE.Vector3());
+    const markerSize = Math.max(worldSize.x, worldSize.y, worldSize.z, 0.1) * 0.012;
+    this.snapMarker.position.copy(candidate.point);
+    this.snapMarker.scale.setScalar(markerSize);
+    this.snapMarker.visible = true;
+    this.snapHintType.textContent = candidate.label;
+    this.snapHint.style.left = event.clientX + "px";
+    this.snapHint.style.top = event.clientY + "px";
+    this.snapHint.hidden = false;
+    this.canvas.classList.add("is-snap-hover");
+  }
+
+  clearSnapPreview() {
+    if (this.snapMarker) this.snapMarker.visible = false;
+    if (this.snapHint) this.snapHint.hidden = true;
+    this.canvas.classList.remove("is-snap-hover");
+  }
+
+  updateSnapFromPointer(event, applyToGizmo) {
+    if (!this.hasObjectSnapMode()) {
+      this.clearSnapPreview();
+      return null;
+    }
+    const candidate = this.getSnapCandidate(event);
+    this.showSnapPreview(candidate, event);
+    if (
+      !candidate ||
+      !applyToGizmo ||
+      candidate.movesWithModel ||
+      this.transformControls.mode !== "translate"
+    ) {
+      return candidate;
+    }
+
+    const nextPosition = constrainSnapPoint(
+      this.transformGizmoAnchor.position,
+      candidate.point,
+      this.transformControls.axis,
+      this.transformControls.space,
+      this.transformGizmoAnchor.quaternion,
+    );
+    if (nextPosition.distanceToSquared(this.transformGizmoAnchor.position) <= 1e-20) {
+      return candidate;
+    }
+    this.transformGizmoAnchor.position.copy(nextPosition);
+    this.transformGizmoAnchor.updateMatrixWorld(true);
+    this.syncModelTransformFromGizmo();
+    this.onTransformGizmoChange?.();
+    return candidate;
+  }
+
   getAlignmentPlaneHit(event) {
     if (!this.alignmentPlanePicking.enabled || !this.setRaycasterFromPointerEvent(event)) {
       return null;
@@ -2082,6 +2639,25 @@ class ThreeViewport {
       return;
     }
 
+    const requiresDirectModelPick = ["tangent", "planar-surface"].includes(
+      this.selectionConfig.method,
+    );
+    if (!requiresDirectModelPick) {
+      const snap = this.getSnapCandidate(event);
+      if (snap) {
+        this.modelRoot.updateMatrixWorld(true);
+        const worldToModel = this.modelRoot.matrixWorld.clone().invert();
+        const normalMatrix = new THREE.Matrix3().getNormalMatrix(worldToModel);
+        this.addConstructionReference({
+          point: snap.point.clone().applyMatrix4(worldToModel),
+          normal: snap.normal?.clone().applyNormalMatrix(normalMatrix).normalize() || null,
+          source: "snap-" + snap.type,
+          label: snap.label,
+        });
+        return;
+      }
+    }
+
     if (!this.setRaycasterFromPointerEvent(event)) return;
     this.modelRoot.updateMatrixWorld(true);
     const worldScale = this.modelRoot.getWorldScale(new THREE.Vector3());
@@ -2110,9 +2686,6 @@ class ThreeViewport {
       return;
     }
 
-    const requiresDirectModelPick = ["tangent", "planar-surface"].includes(
-      this.selectionConfig.method,
-    );
     let reference = null;
     if (nearestCenter && !requiresDirectModelPick) {
       reference = this.getModelCenterReference();
@@ -3256,6 +3829,7 @@ class ThreeViewport {
     this.originMaterial.color.set(0xffffff);
     this.modelCenterCoreMaterial.color.setStyle(value("--accent"));
     this.modelCenterHaloMaterial.color.set(darkTheme ? 0xf5f5f5 : 0x252525);
+    this.snapMarkerMaterial?.color.setStyle(value("--accent"));
 
     if (this.boundsHelper) this.boundsHelper.material.color.setStyle(value("--accent"));
     this.updateAlignmentPlaneVisuals();
@@ -4862,6 +5436,7 @@ const transformInputs = [...document.querySelectorAll("[data-transform]")];
 const statusPosition = document.querySelector("#statusPosition");
 const transformGizmoModeButtons = [...document.querySelectorAll("[data-gizmo-mode]")];
 const transformGizmoSpaceButtons = [...document.querySelectorAll("[data-gizmo-space]")];
+const snapModeButtons = [...document.querySelectorAll("[data-snap-mode]")];
 const gridSnapEnabledInput = document.querySelector("#gridSnapEnabled");
 const gridSnapStepInput = document.querySelector("#gridSnapStep");
 const angleSnapEnabledInput = document.querySelector("#angleSnapEnabled");
@@ -4869,6 +5444,7 @@ const angleSnapStepInput = document.querySelector("#angleSnapStep");
 const transformGizmoControlElements = [
   ...transformGizmoModeButtons,
   ...transformGizmoSpaceButtons,
+  ...snapModeButtons,
   gridSnapEnabledInput,
   gridSnapStepInput,
   angleSnapEnabledInput,
@@ -4914,6 +5490,15 @@ function updateTransformGizmoUi() {
   gridSnapStepInput.value = formatSnapStep(state.transformGizmo.gridStep);
   angleSnapEnabledInput.checked = state.transformGizmo.angleSnap;
   angleSnapStepInput.value = formatSnapStep(state.transformGizmo.angleStep);
+  for (const button of snapModeButtons) {
+    const mode = button.dataset.snapMode;
+    const isActive =
+      mode === "grid"
+        ? state.transformGizmo.gridSnap
+        : Boolean(state.transformGizmo.objectSnap[mode]);
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
 }
 
 function updateSnapStep(input, stateKey, minimum, maximum = Number.POSITIVE_INFINITY) {
@@ -4942,12 +5527,26 @@ transformGizmoSpaceButtons.forEach((button) => {
 
 gridSnapEnabledInput.addEventListener("change", () => {
   state.transformGizmo.gridSnap = gridSnapEnabledInput.checked;
+  updateTransformGizmoUi();
   applyTransformGizmoSettings();
 });
 
 angleSnapEnabledInput.addEventListener("change", () => {
   state.transformGizmo.angleSnap = angleSnapEnabledInput.checked;
   applyTransformGizmoSettings();
+});
+
+snapModeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const mode = button.dataset.snapMode;
+    if (mode === "grid") {
+      state.transformGizmo.gridSnap = !state.transformGizmo.gridSnap;
+    } else if (SNAP_TYPES.includes(mode)) {
+      state.transformGizmo.objectSnap[mode] = !state.transformGizmo.objectSnap[mode];
+    }
+    updateTransformGizmoUi();
+    applyTransformGizmoSettings();
+  });
 });
 
 gridSnapStepInput.addEventListener("input", () => {

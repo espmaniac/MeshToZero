@@ -35,6 +35,7 @@ The application is built with HTML, CSS, JavaScript, and Three.js. It has no fra
 - Center-pivot Move and Rotate gizmos
 - World and Local coordinate spaces
 - Position-to-grid and rotation-to-angle snapping
+- CAD object snaps for vertices, edge midpoints, nearest edge points, faces, centers, and plane intersections
 - Linked or independent scale controls
 - Automatic six-orientation analysis
 - Sequential plane-to-world alignment
