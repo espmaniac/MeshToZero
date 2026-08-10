@@ -799,6 +799,7 @@ input:focus-visible {
 
 .alignment-analyze-button:disabled,
 .alignment-apply-button:disabled,
+.alignment-cancel-button:disabled,
 .alignment-adjust-button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
@@ -922,6 +923,201 @@ input:focus-visible {
   padding: 4px 6px;
   border-radius: 9px;
   font-size: 9px;
+}
+
+.inspect-mode-switch {
+  margin-bottom: 12px;
+}
+
+#inspectSurfacePanel[hidden],
+#inspectDistancePanel[hidden],
+.inspect-results[hidden] {
+  display: none;
+}
+
+.inspect-empty {
+  margin-top: 12px;
+}
+
+.inspect-results {
+  display: grid;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.inspect-primary-result {
+  display: grid;
+  gap: 3px;
+  padding: 11px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-soft-strong);
+  border-radius: 11px;
+}
+
+.inspect-primary-result > span {
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 680;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.inspect-primary-result strong {
+  color: var(--text-primary);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.inspect-primary-result output {
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
+}
+
+.inspect-value-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.inspect-value-grid > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 8px 9px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.inspect-value-grid span,
+.inspect-detail-list dt {
+  color: var(--text-tertiary);
+  font-size: 8px;
+  font-weight: 650;
+}
+
+.inspect-value-grid output,
+.inspect-detail-list dd {
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 10px;
+  font-weight: 670;
+  font-variant-numeric: tabular-nums;
+}
+
+.inspect-detail-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.inspect-detail-list > div {
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px;
+  background: var(--surface-solid);
+}
+
+.inspect-detail-list > div + div {
+  border-top: 1px solid var(--border);
+}
+
+.inspect-detail-list dt,
+.inspect-detail-list dd {
+  margin: 0;
+}
+
+.inspect-pick-tip {
+  margin-top: 12px;
+  margin-bottom: 9px;
+}
+
+.inspect-pick-tip > span > span {
+  display: block;
+}
+
+.inspect-point-list {
+  display: grid;
+  gap: 6px;
+}
+
+.inspect-point-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.inspect-point-row[data-state="active"] {
+  border-color: var(--accent);
+}
+
+.inspect-point-row[data-state="complete"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft-strong);
+}
+
+.inspect-point-symbol {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  background: var(--surface-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 760;
+}
+
+.inspect-point-row[data-state="active"] .inspect-point-symbol,
+.inspect-point-row[data-state="complete"] .inspect-point-symbol {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.inspect-point-row > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.inspect-point-row strong,
+.inspect-point-row small {
+  overflow-wrap: anywhere;
+}
+
+.inspect-point-row strong {
+  color: var(--text-primary);
+  font-size: 10px;
+}
+
+.inspect-point-row small {
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.inspect-center-button {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 10px;
+  font-size: 9px;
+}
+
+.inspect-actions {
+  grid-template-columns: 1fr;
 }
 
 .alignment-fields {
@@ -3993,6 +4189,11 @@ body {
 .model-center-symbol,
 .model-center-coordinates,
 .model-center-use,
+.inspect-primary-result,
+.inspect-value-grid > div,
+.inspect-detail-list,
+.inspect-point-row,
+.inspect-center-button,
 .text-button {
   border-radius: 2px;
 }

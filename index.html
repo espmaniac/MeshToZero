@@ -154,6 +154,10 @@
         <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>
         <path d="m10 9 8 3-4 2-2 4-2-9Z"/>
       </symbol>
+      <symbol id="icon-measure" viewBox="0 0 24 24">
+        <path d="m5 19 14-14 2 2L7 21l-2-2Z"/>
+        <path d="m9 15 2 2m1-5 2 2m1-5 2 2M3 12a9 9 0 0 1 9-9M3 8v4h4"/>
+      </symbol>
     </svg>
 
     <div class="app-shell">
@@ -267,6 +271,10 @@
             <button class="rail-button" id="planeButton" type="button" aria-expanded="false" aria-controls="planeWorkbench">
               <svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg>
               <span>Create Plane</span>
+            </button>
+            <button class="rail-button" id="inspectButton" type="button" data-section="inspect" aria-pressed="false" aria-controls="inspectWorkbench">
+              <svg class="icon" aria-hidden="true"><use href="#icon-measure"></use></svg>
+              <span>Measure / Inspect</span>
             </button>
           </nav>
 
@@ -521,6 +529,103 @@
           </div>
         </section>
 
+        <section class="alignment-workbench inspect-workbench" id="inspectWorkbench" aria-labelledby="inspectWorkbenchTitle" hidden>
+          <header class="workbench-header">
+            <div>
+              <p class="eyebrow">Geometry analysis</p>
+              <h2 id="inspectWorkbenchTitle">Measure / Inspect</h2>
+            </div>
+            <button class="icon-button" id="closeInspectWorkbench" type="button" aria-label="Close Measure and Inspect">
+              <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+            </button>
+          </header>
+
+          <div class="workbench-scroll">
+            <div class="level-mode-switch inspect-mode-switch" role="group" aria-label="Inspection mode">
+              <button class="level-mode-button is-active" type="button" data-inspect-mode="surface" aria-controls="inspectSurfacePanel" aria-pressed="true">
+                <strong>Surface Angle</strong>
+                <small>Plane deviation</small>
+              </button>
+              <button class="level-mode-button" type="button" data-inspect-mode="distance" aria-controls="inspectDistancePanel" aria-pressed="false">
+                <strong>Point to Point</strong>
+                <small>Distance + delta</small>
+              </button>
+            </div>
+
+            <div id="inspectSurfacePanel">
+              <p class="alignment-copy">Click a flat surface. MeshToZero fits its local plane and reports its exact deviation from the world axes.</p>
+
+              <div class="alignment-empty inspect-empty" id="inspectSurfaceEmpty" role="status" aria-live="polite">
+                <svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg>
+                <strong id="inspectSurfaceStatus">Choose a planar surface</strong>
+                <span id="inspectSurfaceHint">Click away from edges. Meshes and point clouds are supported.</span>
+              </div>
+
+              <section class="inspect-results" id="inspectSurfaceResults" aria-labelledby="inspectSurfaceResultTitle" hidden>
+                <div class="inspect-primary-result">
+                  <span id="inspectSurfaceResultTitle">Nearest world plane</span>
+                  <strong id="inspectNearestPlane">Top (XY)</strong>
+                  <output id="inspectNearestAngle">0.000° deviation</output>
+                </div>
+
+                <div class="inspect-value-grid" aria-label="Angular deviations">
+                  <div><span>Normal ↔ X</span><output id="inspectAngleX">0.000°</output></div>
+                  <div><span>Normal ↔ Y</span><output id="inspectAngleY">0.000°</output></div>
+                  <div><span>Normal ↔ Z</span><output id="inspectAngleZ">0.000°</output></div>
+                  <div><span>Origin offset</span><output id="inspectPlaneOffset">0.000 mm</output></div>
+                </div>
+
+                <dl class="inspect-detail-list">
+                  <div><dt>World normal</dt><dd id="inspectSurfaceNormal">X 0 · Y 0 · Z 1</dd></div>
+                  <div><dt>Point on plane</dt><dd id="inspectSurfacePoint">X 0 · Y 0 · Z 0</dd></div>
+                  <div><dt>Fit quality</dt><dd id="inspectSurfaceFit">0 points · RMS 0 mm</dd></div>
+                </dl>
+              </section>
+            </div>
+
+            <div id="inspectDistancePanel" hidden>
+              <p class="alignment-copy">Pick any two model points. Active CAD snaps are used first; otherwise the exact clicked surface point is measured.</p>
+
+              <div class="alignment-pick-tip inspect-pick-tip" role="status" aria-live="polite">
+                <svg class="icon" aria-hidden="true"><use href="#icon-focus"></use></svg>
+                <span><strong id="inspectDistanceStatus">Choose point A</strong><span id="inspectDistanceHint">Click the first point in the viewport.</span></span>
+              </div>
+
+              <div class="inspect-point-list">
+                <div class="inspect-point-row" id="inspectPointARow" data-state="active">
+                  <span class="inspect-point-symbol">A</span>
+                  <span><strong id="inspectPointALabel">Not selected</strong><small id="inspectPointACoordinates">—</small></span>
+                </div>
+                <div class="inspect-point-row" id="inspectPointBRow" data-state="pending">
+                  <span class="inspect-point-symbol">B</span>
+                  <span><strong id="inspectPointBLabel">Not selected</strong><small id="inspectPointBCoordinates">—</small></span>
+                </div>
+              </div>
+
+              <section class="inspect-results" id="inspectDistanceResults" aria-labelledby="inspectDistanceResultTitle" hidden>
+                <div class="inspect-primary-result">
+                  <span id="inspectDistanceResultTitle">3D distance</span>
+                  <strong id="inspectDistanceTotal">0.000 mm</strong>
+                  <output id="inspectDistancePlanar">XY 0.000 mm</output>
+                </div>
+
+                <div class="inspect-value-grid" aria-label="Coordinate deltas">
+                  <div><span>ΔX</span><output id="inspectDeltaX">0.000 mm</output></div>
+                  <div><span>ΔY</span><output id="inspectDeltaY">0.000 mm</output></div>
+                  <div><span>ΔZ</span><output id="inspectDeltaZ">0.000 mm</output></div>
+                  <div><span>To origin (B)</span><output id="inspectPointBRadius">0.000 mm</output></div>
+                </div>
+              </section>
+
+              <button class="alignment-adjust-button inspect-center-button" id="inspectUseModelCenter" type="button">Use Model Center as Next Point</button>
+            </div>
+
+            <div class="alignment-actions inspect-actions">
+              <button class="alignment-cancel-button" id="clearInspection" type="button" disabled>Clear Measurement</button>
+            </div>
+          </div>
+        </section>
+
         <section class="alignment-workbench" id="rotationWorkbench" aria-labelledby="rotationWorkbenchTitle" hidden>
           <header class="workbench-header">
             <div>
@@ -703,7 +808,7 @@
             <div class="inspector-empty" id="inspectorEmpty">
               <svg class="icon" aria-hidden="true"><use href="#icon-select"></use></svg>
               <strong>No active operation</strong>
-              <span>Choose an alignment or construction tool from the left toolbar.</span>
+              <span>Choose an alignment, inspection, or construction tool from the left toolbar.</span>
             </div>
             <div class="inspector-workbench-slot" id="inspectorWorkbenchSlot"></div>
           </section>
