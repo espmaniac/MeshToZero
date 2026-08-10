@@ -925,18 +925,128 @@ input:focus-visible {
   font-size: 9px;
 }
 
-.inspect-mode-switch {
-  margin-bottom: 12px;
-}
-
-#inspectSurfacePanel[hidden],
-#inspectDistancePanel[hidden],
 .inspect-results[hidden] {
   display: none;
 }
 
-.inspect-empty {
+.inspect-step,
+.inspect-reference-section {
   margin-top: 12px;
+}
+
+.inspect-step-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inspect-step-heading > span:last-child {
+  display: grid;
+  gap: 1px;
+}
+
+.inspect-step-heading small {
+  color: var(--text-tertiary);
+  font-size: 8px;
+  font-weight: 640;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.inspect-step-heading strong {
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.inspect-step-number {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  flex: 0 0 auto;
+  place-items: center;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent-contrast);
+  font-size: 9px;
+  font-weight: 760;
+}
+
+.inspect-empty {
+  margin-top: 8px;
+  padding: 14px 12px;
+}
+
+.inspect-empty[data-state="ready"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft-strong);
+}
+
+.inspect-empty[data-state="ready"] > .icon {
+  color: var(--accent-strong);
+}
+
+.inspect-empty[data-state="error"] {
+  border-color: var(--danger);
+}
+
+.inspect-reference-section {
+  padding: 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+}
+
+.inspect-axis-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.inspect-axis-buttons button {
+  display: grid;
+  min-width: 0;
+  min-height: 43px;
+  align-content: center;
+  gap: 1px;
+  padding: 4px 3px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.inspect-axis-buttons button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.inspect-axis-buttons button.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.inspect-axis-buttons strong {
+  font-size: 12px;
+}
+
+.inspect-axis-buttons small {
+  overflow: hidden;
+  color: currentColor;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspect-reference-field {
+  margin-top: 9px;
+}
+
+.inspect-reference-section .alignment-hint {
+  margin-top: 7px;
 }
 
 .inspect-results {
@@ -1031,89 +1141,6 @@ input:focus-visible {
 .inspect-detail-list dt,
 .inspect-detail-list dd {
   margin: 0;
-}
-
-.inspect-pick-tip {
-  margin-top: 12px;
-  margin-bottom: 9px;
-}
-
-.inspect-pick-tip > span > span {
-  display: block;
-}
-
-.inspect-point-list {
-  display: grid;
-  gap: 6px;
-}
-
-.inspect-point-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  padding: 8px 9px;
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  border-radius: 9px;
-}
-
-.inspect-point-row[data-state="active"] {
-  border-color: var(--accent);
-}
-
-.inspect-point-row[data-state="complete"] {
-  background: var(--accent-soft);
-  border-color: var(--accent-soft-strong);
-}
-
-.inspect-point-symbol {
-  display: grid;
-  width: 23px;
-  height: 23px;
-  place-items: center;
-  background: var(--surface-solid);
-  border: 1px solid var(--border-strong);
-  border-radius: 50%;
-  color: var(--text-secondary);
-  font-size: 9px;
-  font-weight: 760;
-}
-
-.inspect-point-row[data-state="active"] .inspect-point-symbol,
-.inspect-point-row[data-state="complete"] .inspect-point-symbol {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-contrast);
-}
-
-.inspect-point-row > span:last-child {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.inspect-point-row strong,
-.inspect-point-row small {
-  overflow-wrap: anywhere;
-}
-
-.inspect-point-row strong {
-  color: var(--text-primary);
-  font-size: 10px;
-}
-
-.inspect-point-row small {
-  color: var(--text-tertiary);
-  font-size: 9px;
-  font-variant-numeric: tabular-nums;
-}
-
-.inspect-center-button {
-  width: 100%;
-  min-height: 34px;
-  margin-top: 10px;
-  font-size: 9px;
 }
 
 .inspect-actions {
@@ -4192,8 +4219,8 @@ body {
 .inspect-primary-result,
 .inspect-value-grid > div,
 .inspect-detail-list,
-.inspect-point-row,
-.inspect-center-button,
+.inspect-reference-section,
+.inspect-axis-buttons button,
 .text-button {
   border-radius: 2px;
 }
