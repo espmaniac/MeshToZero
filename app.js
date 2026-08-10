@@ -19,6 +19,12 @@ const PRINCIPAL_AXIS_SEPARATION_RATIO = 1.05;
 const LOCAL_PLANE_MAX_NEIGHBORS = 320;
 const LOCAL_PLANE_FIT_NEIGHBORS = 128;
 const LOCAL_PLANE_RANSAC_NEIGHBORS = 28;
+const AUTO_ORIENT_MAX_BOUNDS_POINTS = 2400;
+const AUTO_ORIENT_MAX_TRIANGLES = 30000;
+const AUTO_ORIENT_POINT_SAMPLES = 24;
+const AUTO_ORIENT_MAX_SURFACE_CANDIDATES = 6;
+const AUTO_ORIENT_NORMAL_MERGE_ANGLE = THREE.MathUtils.degToRad(6);
+const AUTO_ORIENT_MIN_SURFACE_COVERAGE = 0.015;
 const SNAP_PIXEL_TOLERANCE = 18;
 const SNAP_TYPES = ["vertex", "midpoint", "edge", "face", "center", "intersection"];
 const SUPPORTED_EXTENSIONS = new Set(["obj", "ply", "stl"]);
@@ -672,6 +678,129 @@ function canonicalDirectionKey(direction) {
   return values.map((value) => Math.round(value * sign * 1e6)).join(":");
 }
 
+function canonicalizeUnorientedDirection(direction) {
+  const normal = direction.clone();
+  if (normal.lengthSq() <= GEOMETRY_EPSILON ** 2) return null;
+  normal.normalize();
+  const values = [normal.x, normal.y, normal.z];
+  let dominantIndex = 0;
+  for (let index = 1; index < values.length; index += 1) {
+    if (Math.abs(values[index]) > Math.abs(values[dominantIndex])) dominantIndex = index;
+  }
+  if (values[dominantIndex] < 0) normal.negate();
+  return normal;
+}
+
+function clusterOrientationSamples(samples, maximumAngle = AUTO_ORIENT_NORMAL_MERGE_ANGLE) {
+  const minimumDot = Math.cos(maximumAngle);
+  const clusters = [];
+  const orderedSamples = samples
+    .filter((sample) => sample.weight > 0 && sample.normal?.lengthSq() > GEOMETRY_EPSILON ** 2)
+    .sort((left, right) => right.weight - left.weight);
+
+  for (const sample of orderedSamples) {
+    const normal = canonicalizeUnorientedDirection(sample.normal);
+    if (!normal) continue;
+    let bestCluster = null;
+    let bestDot = minimumDot;
+    for (const cluster of clusters) {
+      const similarity = normal.dot(cluster.normal);
+      if (similarity >= bestDot) {
+        bestDot = similarity;
+        bestCluster = cluster;
+      }
+    }
+
+    if (!bestCluster) {
+      const weight = sample.weight;
+      clusters.push({
+        normal: normal.clone(),
+        vectorSum: normal.clone().multiplyScalar(weight),
+        weight,
+        sampleCount: sample.sampleCount || 1,
+      });
+      continue;
+    }
+
+    bestCluster.vectorSum.addScaledVector(normal, sample.weight);
+    bestCluster.weight += sample.weight;
+    bestCluster.sampleCount += sample.sampleCount || 1;
+    bestCluster.normal.copy(bestCluster.vectorSum).normalize();
+  }
+
+  return clusters
+    .map((cluster) => ({
+      normal: cluster.normal.clone(),
+      weight: cluster.weight,
+      sampleCount: cluster.sampleCount,
+      concentration: cluster.vectorSum.length() / cluster.weight,
+    }))
+    .sort((left, right) => right.weight - left.weight);
+}
+
+function getNearestPointNeighborhood(points, seed, maximum = LOCAL_PLANE_FIT_NEIGHBORS) {
+  const heap = [];
+  const keys = new Set();
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    const distanceSq = point.distanceToSquared(seed);
+    if (distanceSq <= GEOMETRY_EPSILON ** 2) continue;
+    addNearestPointSample(
+      heap,
+      keys,
+      { point, key: String(index), distanceSq },
+      Math.max(2, maximum - 1),
+    );
+  }
+  return [
+    seed.clone(),
+    ...heap
+      .sort((left, right) => left.distanceSq - right.distanceSq)
+      .map((sample) => sample.point.clone()),
+  ];
+}
+
+function choosePreferredPlaneXAxis(normal, frameAxes) {
+  const candidates = frameAxes
+    .map((axis) => axis.clone().normalize())
+    .sort((left, right) => Math.abs(left.dot(normal)) - Math.abs(right.dot(normal)));
+  for (const candidate of candidates) {
+    candidate.addScaledVector(normal, -candidate.dot(normal));
+    if (candidate.lengthSq() > GEOMETRY_EPSILON ** 2) return candidate.normalize();
+  }
+  return createFallbackAxis(normal);
+}
+
+function getUnorientedAngleDegrees(firstNormal, secondNormal) {
+  const similarity = THREE.MathUtils.clamp(
+    Math.abs(firstNormal.clone().normalize().dot(secondNormal.clone().normalize())),
+    0,
+    1,
+  );
+  return THREE.MathUtils.radToDeg(Math.acos(similarity));
+}
+
+function sampleOrientationPoints(points, maximum = AUTO_ORIENT_MAX_BOUNDS_POINTS) {
+  if (points.length <= maximum) return points;
+  const indices = new Set();
+  const evenSampleCount = Math.max(1, maximum - 6);
+  const denominator = Math.max(1, evenSampleCount - 1);
+  for (let sampleIndex = 0; sampleIndex < evenSampleCount; sampleIndex += 1) {
+    indices.add(Math.floor((sampleIndex * (points.length - 1)) / denominator));
+  }
+  for (const axis of ["x", "y", "z"]) {
+    let minimumIndex = 0;
+    let maximumIndex = 0;
+    for (let index = 1; index < points.length; index += 1) {
+      if (points[index][axis] < points[minimumIndex][axis]) minimumIndex = index;
+      if (points[index][axis] > points[maximumIndex][axis]) maximumIndex = index;
+    }
+    indices.add(minimumIndex);
+    indices.add(maximumIndex);
+  }
+  return [...indices].map((index) => points[index]);
+}
+
 function evaluateOrientedFrame(points, frame) {
   const minimum = new THREE.Vector3(Infinity, Infinity, Infinity);
   const maximum = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
@@ -944,11 +1073,6 @@ function createOrientedBoundsPlaneDefinitions(frame, scale) {
     center: toModelPoint(frame.center),
     size: ordered.size.clone(),
   };
-}
-
-function createRotationFromBasis(xAxis, yAxis, zAxis) {
-  const basisMatrix = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
-  return new THREE.Quaternion().setFromRotationMatrix(basisMatrix).invert().normalize();
 }
 
 // Keep source vertices untouched while rotating and scaling around the model center.
@@ -1893,6 +2017,7 @@ class ThreeViewport {
     this.selectionReferences = [];
     this.constructionPlanes = [];
     this.planeSequence = 0;
+    this.autoOrientationPlanePreview = null;
     this.onSelectionChange = null;
     this.onPlanesChange = null;
     this.onModelCenterChange = null;
@@ -3373,6 +3498,30 @@ class ThreeViewport {
     return group;
   }
 
+  clearAutoOrientationPlanePreview() {
+    if (!this.autoOrientationPlanePreview) return;
+    this.disposeObject3D(this.autoOrientationPlanePreview);
+    this.autoOrientationPlanePreview = null;
+  }
+
+  setAutoOrientationPlanePreview(plane) {
+    this.clearAutoOrientationPlanePreview();
+    if (!plane) return;
+    const previewPlane = {
+      ...plane,
+      id: "auto-orientation-preview",
+      origin: plane.origin.clone(),
+      normal: plane.normal.clone(),
+      xAxis: plane.xAxis.clone(),
+    };
+    const object = this.createPlaneVisual(previewPlane, 0x168aad);
+    object.name = "Auto orientation reference plane";
+    object.userData.planeMaterials.fillMaterial.opacity = 0.2;
+    object.userData.planeMaterials.gridMaterial.opacity = 0.92;
+    this.constructionModelGroup.add(object);
+    this.autoOrientationPlanePreview = object;
+  }
+
   createConstructionPlane(
     { id, name, method, origin, normal, xAxis, space, color, visible = true },
     notify = true,
@@ -3521,6 +3670,7 @@ class ThreeViewport {
   }
 
   clearConstructionData() {
+    this.clearAutoOrientationPlanePreview();
     this.clearConstructionSelection();
     this.clearConstructionPlanes();
   }
@@ -3562,43 +3712,283 @@ class ThreeViewport {
     return points;
   }
 
-  createAxisAlignmentCandidates() {
-    const frame = findBestOrientedFrame(this.getScaledModelVertices());
-    const axes = [
-      { direction: frame.xAxis.clone(), size: frame.size.x },
-      { direction: frame.yAxis.clone(), size: frame.size.y },
-      { direction: frame.zAxis.clone(), size: frame.size.z },
-    ];
-    const upAxes = axes.slice().sort((left, right) => left.size - right.size);
-    const groupNames = ["Broad side", "Side", "End"];
-    const candidates = [];
+  getScaledSurfaceOrientationSamples() {
+    if (!this.renderModel) return { samples: [], triangleCount: 0, totalWeight: 0 };
+    const geometries = this.renderModel.modelGeometries.filter(
+      (geometry) => geometry.userData.primitiveType !== "points",
+    );
+    const triangleCount = geometries.reduce((sum, geometry) => {
+      const elementCount = geometry.index?.count || geometry.getAttribute("position")?.count || 0;
+      return sum + Math.floor(elementCount / 3);
+    }, 0);
+    if (!triangleCount) return { samples: [], triangleCount: 0, totalWeight: 0 };
 
-    upAxes.forEach((upAxis, groupIndex) => {
-      const horizontalAxes = axes
-        .filter((axis) => axis !== upAxis)
-        .sort((left, right) => right.size - left.size);
+    const stride = Math.max(1, Math.ceil(triangleCount / AUTO_ORIENT_MAX_TRIANGLES));
+    const scale = new THREE.Vector3(
+      state.model.scale.x,
+      state.model.scale.y,
+      state.model.scale.z,
+    );
+    const samples = [];
+    let totalWeight = 0;
 
-      for (const [sideIndex, sign] of [1, -1].entries()) {
-        const zAxis = upAxis.direction.clone().multiplyScalar(sign);
-        const xAxis = horizontalAxes[0].direction.clone();
-        const yAxis = zAxis.clone().cross(xAxis).normalize();
-        candidates.push({
-          id: "orientation-" + groupIndex + "-" + sideIndex,
-          name: groupNames[groupIndex] + " " + (sideIndex === 0 ? "A" : "B"),
-          quaternion: createRotationFromBasis(xAxis, yAxis, zAxis),
-          size: new THREE.Vector3(
-            horizontalAxes[0].size,
-            horizontalAxes[1].size,
-            upAxis.size,
-          ),
+    for (const geometry of geometries) {
+      const position = geometry.getAttribute("position");
+      const index = geometry.index;
+      const geometryTriangleCount = Math.floor((index?.count || position.count) / 3);
+      const readVertex = (triangleIndex, corner, target) => {
+        const elementIndex = triangleIndex * 3 + corner;
+        const vertexIndex = index ? index.getX(elementIndex) : elementIndex;
+        return target.fromBufferAttribute(position, vertexIndex).multiply(scale);
+      };
+
+      for (let triangleIndex = 0; triangleIndex < geometryTriangleCount; triangleIndex += stride) {
+        const first = readVertex(triangleIndex, 0, new THREE.Vector3());
+        const second = readVertex(triangleIndex, 1, new THREE.Vector3());
+        const third = readVertex(triangleIndex, 2, new THREE.Vector3());
+        const cross = second.clone().sub(first).cross(third.clone().sub(first));
+        const doubleArea = cross.length();
+        if (doubleArea <= GEOMETRY_EPSILON) continue;
+        const weight = doubleArea * 0.5 * stride;
+        samples.push({
+          normal: cross.multiplyScalar(1 / doubleArea),
+          weight,
+          sampleCount: 1,
         });
+        totalWeight += weight;
       }
+    }
+
+    return { samples, triangleCount, totalWeight };
+  }
+
+  getScaledPointPlaneOrientationSamples(points) {
+    if (!points.length) return [];
+    const bounds = new THREE.Box3().setFromPoints(points);
+    const absoluteTolerance = Math.max(
+      bounds.getSize(new THREE.Vector3()).length() * 1e-6,
+      GEOMETRY_EPSILON,
+    );
+    const seedIndices = new Set([0, Math.max(0, points.length - 1)]);
+    const extrema = [
+      { axis: "x", sign: -1 },
+      { axis: "x", sign: 1 },
+      { axis: "y", sign: -1 },
+      { axis: "y", sign: 1 },
+      { axis: "z", sign: -1 },
+      { axis: "z", sign: 1 },
+    ];
+    for (const { axis, sign } of extrema) {
+      let bestIndex = 0;
+      let bestValue = sign * points[0][axis];
+      for (let index = 1; index < points.length; index += 1) {
+        const value = sign * points[index][axis];
+        if (value > bestValue) {
+          bestValue = value;
+          bestIndex = index;
+        }
+      }
+      seedIndices.add(bestIndex);
+    }
+    for (let sampleIndex = 0; seedIndices.size < AUTO_ORIENT_POINT_SAMPLES; sampleIndex += 1) {
+      if (sampleIndex >= AUTO_ORIENT_POINT_SAMPLES * 3) break;
+      const fraction = (sampleIndex * 0.6180339887498949) % 1;
+      seedIndices.add(Math.min(points.length - 1, Math.floor(fraction * points.length)));
+    }
+
+    const samples = [];
+    for (const seedIndex of seedIndices) {
+      const seed = points[seedIndex];
+      try {
+        const fitted = fitPlanarSurfaceAtPoint(
+          getNearestPointNeighborhood(points, seed),
+          seed,
+          { absoluteTolerance },
+        );
+        samples.push({
+          normal: fitted.normal,
+          weight: fitted.pointCount,
+          sampleCount: 1,
+        });
+      } catch {
+        // Curved or sparse neighborhoods are expected; global axes remain as fallbacks.
+      }
+    }
+    return samples;
+  }
+
+  createAxisAlignmentCandidates() {
+    const points = this.getScaledModelVertices();
+    const frame = findBestOrientedFrame(sampleOrientationPoints(points));
+    const orderedFrame = orderFrameAxesByExtent(frame);
+    const principal = getPrincipalFrame(points);
+    const frameAxes = [
+      orderedFrame.xAxis.clone(),
+      orderedFrame.yAxis.clone(),
+      orderedFrame.zAxis.clone(),
+    ];
+    const bounds = this.getLocalBoundsInfo();
+    if (!bounds) throw new Error("The model center is not available.");
+    const scale = new THREE.Vector3(
+      state.model.scale.x,
+      state.model.scale.y,
+      state.model.scale.z,
+    );
+    if ([scale.x, scale.y, scale.z].some((value) => Math.abs(value) <= GEOMETRY_EPSILON)) {
+      throw new Error("Auto orientation requires a non-zero scale on every axis.");
+    }
+
+    const candidates = [];
+    const analysisNormals = [];
+    const duplicateThreshold = Math.cos(THREE.MathUtils.degToRad(1.5));
+    const toModelNormal = (normal) => normal.clone().multiply(scale).normalize();
+    const toModelDirection = (direction) =>
+      new THREE.Vector3(
+        direction.x / scale.x,
+        direction.y / scale.y,
+        direction.z / scale.z,
+      ).normalize();
+    const addCandidate = ({ name, kind, method, detail, normal, preferredXAxis }) => {
+      const analysisNormal = canonicalizeUnorientedDirection(normal);
+      if (!analysisNormal) return false;
+      if (
+        analysisNormals.some(
+          (existingNormal) => Math.abs(existingNormal.dot(analysisNormal)) >= duplicateThreshold,
+        )
+      ) {
+        return false;
+      }
+      const scaledBasis = normalizePlaneBasis(
+        analysisNormal,
+        preferredXAxis || choosePreferredPlaneXAxis(analysisNormal, frameAxes),
+      );
+      const modelBasis = normalizePlaneBasis(
+        toModelNormal(scaledBasis.normal),
+        toModelDirection(scaledBasis.xAxis),
+      );
+      analysisNormals.push(analysisNormal);
+      candidates.push({
+        id: "orientation-" + (candidates.length + 1),
+        name,
+        kind,
+        method,
+        detail,
+        plane: {
+          origin: bounds.center.clone(),
+          normal: modelBasis.normal,
+          xAxis: modelBasis.xAxis,
+          space: "model",
+        },
+      });
+      return true;
+    };
+
+    const longVariance = principal.variances.x;
+    const middleVariance = Math.max(principal.variances.y, GEOMETRY_EPSILON);
+    const shortVariance = Math.max(principal.variances.z, GEOMETRY_EPSILON);
+    const longToMiddle = longVariance / middleVariance;
+    const middleToShort = middleVariance / shortVariance;
+    if (longToMiddle >= 1.35 && middleToShort <= 1.3) {
+      addCandidate({
+        name: "Long / cylindrical axis",
+        kind: "Axis",
+        method: "Principal symmetry axis",
+        detail: "Elongated form with a balanced cross-section",
+        normal: principal.xAxis,
+      });
+    }
+    if (longToMiddle <= 1.3 && middleToShort >= 1.35) {
+      addCandidate({
+        name: "Short / cylindrical axis",
+        kind: "Axis",
+        method: "Principal symmetry axis",
+        detail: "Broad form with one short direction",
+        normal: principal.zAxis,
+      });
+    }
+
+    const surfaceInfo = this.getScaledSurfaceOrientationSamples();
+    const surfaceSamples = surfaceInfo.samples.length
+      ? surfaceInfo.samples
+      : this.getScaledPointPlaneOrientationSamples(points);
+    const surfaceClusters = clusterOrientationSamples(surfaceSamples);
+    const totalSurfaceWeight = surfaceSamples.reduce((sum, sample) => sum + sample.weight, 0);
+    const localFitCount = surfaceInfo.samples.length ? 0 : surfaceSamples.length;
+    let addedSurfaceCandidates = 0;
+    for (const cluster of surfaceClusters) {
+      const coverage = totalSurfaceWeight > 0 ? cluster.weight / totalSurfaceWeight : 0;
+      const localAgreement = localFitCount > 0 ? cluster.sampleCount / localFitCount : 0;
+      const enoughSupport = surfaceInfo.samples.length
+        ? coverage >= AUTO_ORIENT_MIN_SURFACE_COVERAGE
+        : cluster.sampleCount >= Math.min(2, localFitCount);
+      if (!enoughSupport || cluster.concentration < 0.994) continue;
+      const ordinal = addedSurfaceCandidates + 1;
+      const isMeshSurface = surfaceInfo.samples.length > 0;
+      const isPlanarDirection = isMeshSurface && cluster.concentration >= 0.9999;
+      const detail = isMeshSurface
+        ? (coverage * 100).toFixed(1) + "% sampled mesh area · " +
+          cluster.sampleCount.toLocaleString("en-US") + " faces"
+        : cluster.sampleCount + " of " + localFitCount + " local fits agree · " +
+          (localAgreement * 100).toFixed(0) + "%";
+      if (
+        addCandidate({
+          name:
+            ordinal === 1
+              ? isPlanarDirection
+                ? "Largest planar direction"
+                : "Dominant surface direction"
+              : (isPlanarDirection ? "Planar direction " : "Surface direction ") + ordinal,
+          kind: "Surface",
+          method: isMeshSurface
+            ? isPlanarDirection
+              ? "Detected planar direction"
+              : "Detected surface direction"
+            : "Detected point-cloud plane",
+          detail,
+          normal: cluster.normal,
+        })
+      ) {
+        addedSurfaceCandidates += 1;
+      }
+      if (addedSurfaceCandidates >= AUTO_ORIENT_MAX_SURFACE_CANDIDATES) break;
+    }
+
+    addCandidate({
+      name: "Bounds broad side",
+      kind: "Bounds",
+      method: "Oriented bounds fallback",
+      detail: "Shortest model extent becomes the plane normal",
+      normal: orderedFrame.zAxis,
+      preferredXAxis: orderedFrame.xAxis,
     });
+    addCandidate({
+      name: "Bounds side",
+      kind: "Bounds",
+      method: "Oriented bounds fallback",
+      detail: "Middle model extent becomes the plane normal",
+      normal: orderedFrame.yAxis,
+      preferredXAxis: orderedFrame.xAxis,
+    });
+    addCandidate({
+      name: "Bounds end",
+      kind: "Bounds",
+      method: "Oriented bounds fallback",
+      detail: "Longest model extent becomes the plane normal",
+      normal: orderedFrame.xAxis,
+      preferredXAxis: orderedFrame.yAxis,
+    });
+
+    if (!candidates.length) {
+      throw new Error("No stable automatic alignment variants were found.");
+    }
 
     return {
       candidates,
       hullVertexCount: frame.hullVertexCount,
       candidateFrameCount: frame.candidateFrameCount,
+      triangleCount: surfaceInfo.triangleCount,
+      localFitCount,
+      surfaceCandidateCount: addedSurfaceCandidates,
     };
   }
 
@@ -3624,6 +4014,62 @@ class ThreeViewport {
     );
   }
 
+  getPlaneDefinitionWorldBasis(plane, baseTransform = state.model) {
+    const { rotation: eulerRotation, scale } = baseTransform;
+    const currentRotation = eulerRotation?.isQuaternion
+      ? eulerRotation.clone()
+      : new THREE.Quaternion().setFromEuler(
+          new THREE.Euler(eulerRotation.x, eulerRotation.y, eulerRotation.z, "XYZ"),
+        );
+    const scaleMatrix = new THREE.Matrix4().makeScale(scale.x, scale.y, scale.z);
+    const normalMatrix = new THREE.Matrix3().getNormalMatrix(scaleMatrix);
+    const normal = plane.normal
+      .clone()
+      .applyNormalMatrix(normalMatrix)
+      .applyQuaternion(currentRotation)
+      .normalize();
+    const xAxis = plane.xAxis
+      .clone()
+      .transformDirection(scaleMatrix)
+      .applyQuaternion(currentRotation)
+      .normalize();
+    return { normal, xAxis, currentRotation };
+  }
+
+  getPlaneAngularDeviation(plane, targetId, baseTransform = state.model) {
+    const target = ALIGNMENT_TARGETS[targetId];
+    if (!target) throw new Error("Choose a valid world target plane.");
+    const source = this.getPlaneDefinitionWorldBasis(plane, baseTransform);
+    return getUnorientedAngleDegrees(source.normal, target.normal);
+  }
+
+  createPlaneDefinitionRotationTransform(
+    plane,
+    targetId,
+    flipNormal,
+    quarterTurns,
+    baseTransform = state.model,
+  ) {
+    const target = ALIGNMENT_TARGETS[targetId];
+    if (!target) throw new Error("Choose a valid world target plane.");
+    const source = this.getPlaneDefinitionWorldBasis(plane, baseTransform);
+    if (flipNormal) source.normal.negate();
+    const targetNormal = target.normal.clone().normalize();
+    const alignmentDelta = createNormalAlignmentDelta(
+      source.normal,
+      targetNormal,
+      source.xAxis,
+    );
+    const directionTurn = new THREE.Quaternion().setFromAxisAngle(
+      targetNormal,
+      quarterTurns * Math.PI * 0.5,
+    );
+    return directionTurn
+      .multiply(alignmentDelta)
+      .multiply(source.currentRotation)
+      .normalize();
+  }
+
   createPlaneDefinitionAlignmentTransform(
     plane,
     targetId,
@@ -3634,40 +4080,17 @@ class ThreeViewport {
     const target = ALIGNMENT_TARGETS[targetId];
     if (!target) throw new Error("Choose a valid world target plane.");
 
-    const { position, rotation: eulerRotation, scale } = baseTransform;
+    const { position, scale } = baseTransform;
     const currentPosition = new THREE.Vector3(position.x, position.y, position.z);
-    const currentRotation = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(eulerRotation.x, eulerRotation.y, eulerRotation.z, "XYZ"),
-    );
     const scaleVector = new THREE.Vector3(scale.x, scale.y, scale.z);
-    const scaleMatrix = new THREE.Matrix4().makeScale(scale.x, scale.y, scale.z);
-    const normalMatrix = new THREE.Matrix3().getNormalMatrix(scaleMatrix);
-    const sourceNormal = plane.normal
-      .clone()
-      .applyNormalMatrix(normalMatrix)
-      .applyQuaternion(currentRotation)
-      .normalize();
-    if (flipNormal) sourceNormal.negate();
-    const sourceXAxis = plane.xAxis
-      .clone()
-      .transformDirection(scaleMatrix)
-      .applyQuaternion(currentRotation)
-      .normalize();
     const targetNormal = target.normal.clone().normalize();
-    // Compose a world-space delta with the transform the user has already applied.
-    const alignmentDelta = createNormalAlignmentDelta(
-      sourceNormal,
-      targetNormal,
-      sourceXAxis,
+    const rotation = this.createPlaneDefinitionRotationTransform(
+      plane,
+      targetId,
+      flipNormal,
+      quarterTurns,
+      baseTransform,
     );
-    const directionTurn = new THREE.Quaternion().setFromAxisAngle(
-      targetNormal,
-      quarterTurns * Math.PI * 0.5,
-    );
-    const rotation = directionTurn
-      .multiply(alignmentDelta)
-      .multiply(currentRotation)
-      .normalize();
     const pivot = this.getLocalBoundsInfo()?.center;
     if (!pivot) throw new Error("The model center is not available.");
     const rootPosition = calculateRootPositionAroundPivot(
@@ -4599,7 +5022,7 @@ function restoreEditState(snapshot) {
 function getHistoryIconId(label, isInitial) {
   if (isInitial) return "icon-import";
   const normalizedLabel = label.toLowerCase();
-  if (/(rotate|align|lay)/.test(normalizedLabel)) return "icon-rotate";
+  if (/(rotate|orient|align|lay)/.test(normalizedLabel)) return "icon-rotate";
   if (normalizedLabel.includes("plane")) return "icon-plane";
   if (/(position|move|drop|center)/.test(normalizedLabel)) return "icon-move";
   if (normalizedLabel.includes("scale")) return "icon-cube";
@@ -5142,8 +5565,12 @@ const rotationAnalysisStatus = document.querySelector("#rotationAnalysisStatus")
 const rotationAnalysisText = document.querySelector("#rotationAnalysisText");
 const orientationResults = document.querySelector("#orientationResults");
 const orientationCandidateList = document.querySelector("#orientationCandidateList");
+const orientationTargetButtons = [
+  ...document.querySelectorAll("[data-orientation-target]"),
+];
 const analyzeOrientationButton = document.querySelector("#analyzeOrientation");
 const recalculateOrientationButton = document.querySelector("#recalculateOrientation");
+const flipOrientationNormalButton = document.querySelector("#flipOrientationNormal");
 const turnOrientationButton = document.querySelector("#turnOrientation");
 const applyOrientationButton = document.querySelector("#applyOrientation");
 const cancelOrientationButton = document.querySelector("#cancelOrientation");
@@ -5185,6 +5612,8 @@ let selectedReferenceCount = 0;
 let alignmentPreviewSession = null;
 let automaticOrientationCandidates = [];
 let selectedOrientationCandidate = null;
+let orientationTargetId = "z";
+let orientationNormalFlipped = false;
 let orientationQuarterTurns = 0;
 let orientationAnalysisSequence = 0;
 let levelNormalFlipped = false;
@@ -5459,7 +5888,7 @@ function updateLeftRailWorkbench() {
       : !inspectWorkbench.hidden
         ? "Plane Inspector tools"
         : !rotationWorkbench.hidden
-          ? "Rotate to axes tools"
+          ? "Auto Orient tools"
           : !levelWorkbench.hidden
             ? "Align and level tools"
             : null;
@@ -5980,6 +6409,7 @@ function endAlignmentPreview(type, restore) {
 function closeRotationWorkbench(restore) {
   orientationAnalysisSequence += 1;
   rotationWorkbench.hidden = true;
+  viewport?.clearAutoOrientationPlanePreview();
   endAlignmentPreview("automatic", restore);
   updateLeftRailWorkbench();
   updateTransformGizmoVisibility();
@@ -6011,48 +6441,90 @@ function setRotationAnalysisStatus(status, message) {
 function resetAutomaticOrientationUi() {
   automaticOrientationCandidates = [];
   selectedOrientationCandidate = null;
+  orientationTargetId = "z";
+  orientationNormalFlipped = false;
   orientationQuarterTurns = 0;
+  viewport?.clearAutoOrientationPlanePreview();
   orientationCandidateList.replaceChildren();
   orientationResults.hidden = true;
   analyzeOrientationButton.hidden = false;
   analyzeOrientationButton.disabled = false;
+  flipOrientationNormalButton.disabled = true;
+  flipOrientationNormalButton.setAttribute("aria-pressed", "false");
   turnOrientationButton.disabled = true;
+  turnOrientationButton.querySelector("span").textContent = "Turn 90° around Z";
   applyOrientationButton.disabled = true;
+  for (const button of orientationTargetButtons) {
+    const isActive = button.dataset.orientationTarget === orientationTargetId;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
   setRotationAnalysisStatus("idle", "Ready to analyze the model.");
+}
+
+function getAutomaticOrientationBaseTransform() {
+  if (alignmentPreviewSession?.type !== "automatic") return state.model;
+  return {
+    position: alignmentPreviewSession.originalPosition,
+    rotation: alignmentPreviewSession.originalRotation,
+    scale: state.model.scale,
+  };
+}
+
+function formatOrientationAngle(angle) {
+  if (!Number.isFinite(angle) || angle < 0.0005) return "0.000°";
+  return angle.toFixed(angle < 10 ? 3 : 2) + "°";
 }
 
 function renderOrientationCandidates() {
   orientationCandidateList.replaceChildren();
+  const baseTransform = getAutomaticOrientationBaseTransform();
   for (const candidate of automaticOrientationCandidates) {
     const button = document.createElement("button");
     button.className = "orientation-candidate";
     button.type = "button";
     button.dataset.orientationId = candidate.id;
     button.setAttribute("role", "option");
-    button.setAttribute("aria-selected", "false");
+    const isActive = selectedOrientationCandidate?.id === candidate.id;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+
+    const heading = document.createElement("span");
+    heading.className = "orientation-candidate-heading";
     const name = document.createElement("strong");
     name.textContent = candidate.name;
-    const dimensions = document.createElement("small");
-    dimensions.textContent =
-      "X " +
-      formatCoordinate(candidate.size.x) +
-      " · Y " +
-      formatCoordinate(candidate.size.y) +
-      " · Z " +
-      formatCoordinate(candidate.size.z);
-    button.append(name, dimensions);
+    const angle = document.createElement("span");
+    angle.className = "orientation-candidate-angle";
+    angle.textContent = formatOrientationAngle(
+      viewport.getPlaneAngularDeviation(candidate.plane, orientationTargetId, baseTransform),
+    );
+    heading.append(name, angle);
+
+    const meta = document.createElement("span");
+    meta.className = "orientation-candidate-meta";
+    const type = document.createElement("span");
+    type.className = "orientation-candidate-type";
+    type.textContent = candidate.kind;
+    const detail = document.createElement("small");
+    detail.textContent = candidate.detail;
+    meta.append(type, detail);
+    button.title = candidate.method + " · " + candidate.detail;
+    button.append(heading, meta);
     button.addEventListener("click", () => selectOrientationCandidate(candidate.id));
     orientationCandidateList.append(button);
   }
 }
 
 function previewAutomaticOrientation() {
-  if (!selectedOrientationCandidate) return;
-  const turn = new THREE.Quaternion().setFromAxisAngle(
-    new THREE.Vector3(0, 0, 1),
-    orientationQuarterTurns * Math.PI * 0.5,
+  if (!selectedOrientationCandidate || !viewport) return;
+  const rotation = viewport.createPlaneDefinitionRotationTransform(
+    selectedOrientationCandidate.plane,
+    orientationTargetId,
+    orientationNormalFlipped,
+    orientationQuarterTurns,
+    getAutomaticOrientationBaseTransform(),
   );
-  const rotation = turn.multiply(selectedOrientationCandidate.quaternion.clone()).normalize();
+  viewport.setAutoOrientationPlanePreview(selectedOrientationCandidate.plane);
   previewAlignmentRotation("automatic", rotation);
 }
 
@@ -6061,14 +6533,28 @@ function selectOrientationCandidate(candidateId) {
     (candidate) => candidate.id === candidateId,
   );
   if (!selectedOrientationCandidate) return;
+  orientationNormalFlipped = false;
   orientationQuarterTurns = 0;
-  for (const button of orientationCandidateList.children) {
-    const isActive = button.dataset.orientationId === candidateId;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-selected", String(isActive));
-  }
+  flipOrientationNormalButton.disabled = false;
+  flipOrientationNormalButton.setAttribute("aria-pressed", "false");
   turnOrientationButton.disabled = false;
   applyOrientationButton.disabled = false;
+  renderOrientationCandidates();
+  previewAutomaticOrientation();
+}
+
+function selectOrientationTarget(targetId) {
+  if (!ALIGNMENT_TARGETS[targetId] || orientationTargetId === targetId) return;
+  orientationTargetId = targetId;
+  orientationQuarterTurns = 0;
+  for (const button of orientationTargetButtons) {
+    const isActive = button.dataset.orientationTarget === targetId;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
+  turnOrientationButton.querySelector("span").textContent =
+    "Turn 90° around " + targetId.toUpperCase();
+  renderOrientationCandidates();
   previewAutomaticOrientation();
 }
 
@@ -6078,8 +6564,13 @@ async function analyzeModelOrientation() {
   analyzeOrientationButton.hidden = true;
   orientationResults.hidden = true;
   applyOrientationButton.disabled = true;
+  flipOrientationNormalButton.disabled = true;
   turnOrientationButton.disabled = true;
-  setRotationAnalysisStatus("analyzing", "Analyzing convex hull and oriented bounds...");
+  viewport.clearAutoOrientationPlanePreview();
+  setRotationAnalysisStatus(
+    "analyzing",
+    "Detecting flat directions, symmetry axes, and oriented bounds...",
+  );
   await new Promise((resolve) => requestAnimationFrame(resolve));
   if (analysisSequence !== orientationAnalysisSequence || rotationWorkbench.hidden) return;
 
@@ -6089,13 +6580,14 @@ async function analyzeModelOrientation() {
     automaticOrientationCandidates = result.candidates;
     renderOrientationCandidates();
     orientationResults.hidden = false;
+    const sourceSummary = result.triangleCount
+      ? result.triangleCount.toLocaleString("en-US") + " mesh triangles"
+      : result.localFitCount
+        ? result.localFitCount.toLocaleString("en-US") + " successful local fits"
+        : result.hullVertexCount.toLocaleString("en-US") + " sampled hull vertices";
     setRotationAnalysisStatus(
       "ready",
-      "Tested " +
-        result.candidateFrameCount.toLocaleString("en-US") +
-        " frames across " +
-        result.hullVertexCount.toLocaleString("en-US") +
-        " hull vertices.",
+      "Found " + result.candidates.length + " variants from " + sourceSummary + ".",
     );
     selectOrientationCandidate(automaticOrientationCandidates[0].id);
   } catch (error) {
@@ -6463,6 +6955,17 @@ levelModeButtons.forEach((button) => {
 });
 analyzeOrientationButton.addEventListener("click", () => void analyzeModelOrientation());
 recalculateOrientationButton.addEventListener("click", () => void analyzeModelOrientation());
+orientationTargetButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    selectOrientationTarget(button.dataset.orientationTarget);
+  });
+});
+flipOrientationNormalButton.addEventListener("click", () => {
+  if (!selectedOrientationCandidate) return;
+  orientationNormalFlipped = !orientationNormalFlipped;
+  flipOrientationNormalButton.setAttribute("aria-pressed", String(orientationNormalFlipped));
+  previewAutomaticOrientation();
+});
 turnOrientationButton.addEventListener("click", () => {
   orientationQuarterTurns = (orientationQuarterTurns + 1) % 4;
   previewAutomaticOrientation();
@@ -6470,10 +6973,21 @@ turnOrientationButton.addEventListener("click", () => {
 applyOrientationButton.addEventListener("click", () => {
   if (!selectedOrientationCandidate) return;
   const beforeState = alignmentPreviewSession?.historyBefore;
+  const appliedCandidate = selectedOrientationCandidate;
   closeRotationWorkbench(false);
-  if (beforeState) recordEdit("Rotate model to axes", beforeState);
+  viewport?.createConstructionPlane({
+    name: "Auto · " + appliedCandidate.name,
+    method: appliedCandidate.method,
+    origin: appliedCandidate.plane.origin,
+    normal: appliedCandidate.plane.normal,
+    xAxis: appliedCandidate.plane.xAxis,
+    space: "model",
+  });
+  if (beforeState) recordEdit("Auto orient by " + appliedCandidate.name, beforeState);
   clearActiveToolSection();
-  showToast("Automatic axis rotation applied. Position and scale were preserved.");
+  showToast(
+    "Auto orientation applied and its reference plane was saved. Position and scale were preserved.",
+  );
 });
 cancelOrientationButton.addEventListener("click", () => {
   closeRotationWorkbench(true);

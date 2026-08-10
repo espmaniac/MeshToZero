@@ -25,7 +25,7 @@ The application is built with HTML, CSS, JavaScript, and Three.js. It has no fra
 3. Move, rotate, and scale with numeric fields or the transform gizmo.
 4. Create automatic or manual construction planes from the model geometry.
 5. Compare a fitted model surface with a chosen X, Y, Z, or construction plane.
-6. Align the model to world axes, lay a selected surface flat, or drop it onto the XY bed.
+6. Auto-orient the model from one of several detected planes or axes, align it manually, lay a selected surface flat, or drop it onto the XY bed.
 7. Review or restore any operation from Transform History.
 8. Export the transformed model in the same format as the imported file.
 
@@ -39,7 +39,9 @@ The application is built with HTML, CSS, JavaScript, and Three.js. It has no fra
 - CAD object snaps for vertices, edge midpoints, nearest edge points, faces, centers, and plane intersections
 - Snap-to-snap translation from a model reference to Grid, a world-plane intersection, or World Origin
 - Linked or independent scale controls
-- Automatic six-orientation analysis
+- Auto Orient variants from planar or dominant mesh-surface directions, point-cloud plane fits, cylindrical or elongated symmetry axes, and oriented bounds
+- Explicit X / Right, Y / Front, and Z / Top targets for every automatic variant
+- Central preview plane saved as reusable construction geometry when Auto Orient is applied
 - Sequential plane-to-world alignment
 - Normal flipping and 90-degree turns around a target normal
 - Lay Flat placement from a selected mesh or point-cloud surface
