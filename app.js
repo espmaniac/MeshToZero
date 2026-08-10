@@ -2955,6 +2955,51 @@ class ThreeViewport {
     this.notifySelectionChange();
   }
 
+  setMeasurementGuide(references = []) {
+    const existingGuide = this.selectionGroup.children.find(
+      (child) => child.userData.isMeasurementGuide,
+    );
+    if (references.length < 2) {
+      if (existingGuide) this.disposeObject3D(existingGuide);
+      return;
+    }
+    if (existingGuide) {
+      const positions = existingGuide.geometry.getAttribute("position");
+      positions.setXYZ(
+        0,
+        references[0].point.x,
+        references[0].point.y,
+        references[0].point.z,
+      );
+      positions.setXYZ(
+        1,
+        references[1].point.x,
+        references[1].point.y,
+        references[1].point.z,
+      );
+      positions.needsUpdate = true;
+      existingGuide.geometry.computeBoundingSphere();
+      return;
+    }
+
+    const geometry = new THREE.BufferGeometry().setFromPoints([
+      references[0].point,
+      references[1].point,
+    ]);
+    const material = new THREE.LineBasicMaterial({
+      color: 0xffcc33,
+      depthTest: false,
+      depthWrite: false,
+      transparent: true,
+      opacity: 0.96,
+    });
+    const guide = new THREE.Line(geometry, material);
+    guide.name = "Measurement A to B";
+    guide.renderOrder = 19;
+    guide.userData.isMeasurementGuide = true;
+    this.selectionGroup.add(guide);
+  }
+
   addSelectionMarker(point) {
     const markerRadius = this.getConstructionVisualScale() * 0.014;
     const geometry = new THREE.SphereGeometry(markerRadius, 18, 12);
@@ -3137,7 +3182,10 @@ class ThreeViewport {
       this.selectionConfig.method,
     );
     if (!requiresDirectModelPick) {
-      const snap = this.getSnapCandidate(event);
+      const snap = this.getSnapCandidate(
+        event,
+        this.selectionConfig.method === "measure-distance" ? { mobility: "model" } : {},
+      );
       if (snap) {
         this.modelRoot.updateMatrixWorld(true);
         const worldToModel = this.modelRoot.matrixWorld.clone().invert();
@@ -3186,7 +3234,7 @@ class ThreeViewport {
     } else if (useSurface || this.selectionConfig.method === "tangent") {
       reference = this.getSurfaceSelection(
         nearestSurface,
-        requiresDirectModelPick,
+        requiresDirectModelPick || this.selectionConfig.method === "measure-distance",
       );
     } else if (nearestPoint) {
       reference = this.getPointCloudSelection(nearestPoint);
@@ -4827,7 +4875,7 @@ function mountCadWorkspacePanels() {
   moveTarget(".shortcut-hint", "#statusHelpSlot");
 
   for (const workbench of document.querySelectorAll(
-    "#planeWorkbench, #layFlatWorkbench, #rotationWorkbench, #levelWorkbench",
+    "#planeWorkbench, #layFlatWorkbench, #inspectWorkbench, #rotationWorkbench, #levelWorkbench",
   )) {
     inspectorWorkbenchSlot.append(workbench);
   }
@@ -4850,6 +4898,10 @@ sectionButtons.forEach((button) => {
     }
     if (section === "lay-flat") {
       openLayFlatWorkbench();
+      return;
+    }
+    if (section === "inspect") {
+      openInspectWorkbench();
     }
   });
 });
@@ -5060,6 +5112,41 @@ const closeLayFlatWorkbenchButton = document.querySelector("#closeLayFlatWorkben
 const cancelLayFlatButton = document.querySelector("#cancelLayFlat");
 const layFlatSelectionStatus = document.querySelector("#layFlatSelectionStatus");
 const layFlatSelectionHint = document.querySelector("#layFlatSelectionHint");
+const inspectWorkbench = document.querySelector("#inspectWorkbench");
+const closeInspectWorkbenchButton = document.querySelector("#closeInspectWorkbench");
+const inspectModeButtons = [...document.querySelectorAll("[data-inspect-mode]")];
+const inspectSurfacePanel = document.querySelector("#inspectSurfacePanel");
+const inspectDistancePanel = document.querySelector("#inspectDistancePanel");
+const inspectSurfaceEmpty = document.querySelector("#inspectSurfaceEmpty");
+const inspectSurfaceStatus = document.querySelector("#inspectSurfaceStatus");
+const inspectSurfaceHint = document.querySelector("#inspectSurfaceHint");
+const inspectSurfaceResults = document.querySelector("#inspectSurfaceResults");
+const inspectNearestPlane = document.querySelector("#inspectNearestPlane");
+const inspectNearestAngle = document.querySelector("#inspectNearestAngle");
+const inspectAngleX = document.querySelector("#inspectAngleX");
+const inspectAngleY = document.querySelector("#inspectAngleY");
+const inspectAngleZ = document.querySelector("#inspectAngleZ");
+const inspectPlaneOffset = document.querySelector("#inspectPlaneOffset");
+const inspectSurfaceNormal = document.querySelector("#inspectSurfaceNormal");
+const inspectSurfacePoint = document.querySelector("#inspectSurfacePoint");
+const inspectSurfaceFit = document.querySelector("#inspectSurfaceFit");
+const inspectDistanceStatus = document.querySelector("#inspectDistanceStatus");
+const inspectDistanceHint = document.querySelector("#inspectDistanceHint");
+const inspectPointARow = document.querySelector("#inspectPointARow");
+const inspectPointBRow = document.querySelector("#inspectPointBRow");
+const inspectPointALabel = document.querySelector("#inspectPointALabel");
+const inspectPointACoordinates = document.querySelector("#inspectPointACoordinates");
+const inspectPointBLabel = document.querySelector("#inspectPointBLabel");
+const inspectPointBCoordinates = document.querySelector("#inspectPointBCoordinates");
+const inspectDistanceResults = document.querySelector("#inspectDistanceResults");
+const inspectDistanceTotal = document.querySelector("#inspectDistanceTotal");
+const inspectDistancePlanar = document.querySelector("#inspectDistancePlanar");
+const inspectDeltaX = document.querySelector("#inspectDeltaX");
+const inspectDeltaY = document.querySelector("#inspectDeltaY");
+const inspectDeltaZ = document.querySelector("#inspectDeltaZ");
+const inspectPointBRadius = document.querySelector("#inspectPointBRadius");
+const inspectUseModelCenterButton = document.querySelector("#inspectUseModelCenter");
+const clearInspectionButton = document.querySelector("#clearInspection");
 const originPlaneButtons = [...document.querySelectorAll("[data-origin-plane]")];
 const modelCenterVisibilityButton = document.querySelector("#modelCenterVisibility");
 const useModelCenterButton = document.querySelector("#useModelCenter");
@@ -5155,6 +5242,8 @@ let activeLevelMode = "plane";
 let snapAlignSource = null;
 let snapAlignTarget = null;
 let layFlatApplying = false;
+let activeInspectMode = "surface";
+let surfaceInspectionCache = null;
 
 function formatPointCoordinates(point) {
   return (
@@ -5165,6 +5254,216 @@ function formatPointCoordinates(point) {
     " · Z " +
     formatCoordinate(point.z)
   );
+}
+
+const INSPECTION_WORLD_PLANES = [
+  { name: "Right (YZ)", normal: new THREE.Vector3(1, 0, 0) },
+  { name: "Front (XZ)", normal: new THREE.Vector3(0, 1, 0) },
+  { name: "Top (XY)", normal: new THREE.Vector3(0, 0, 1) },
+];
+
+function formatInspectionAngle(value) {
+  return (Math.abs(value) < 5e-7 ? 0 : value).toFixed(3) + "°";
+}
+
+function formatInspectionDistance(value) {
+  return formatCoordinate(Math.abs(value) < 5e-10 ? 0 : value) + " mm";
+}
+
+function getAcuteNormalAngle(normal, axis) {
+  const cosine = THREE.MathUtils.clamp(Math.abs(normal.dot(axis)), 0, 1);
+  return THREE.MathUtils.radToDeg(Math.acos(cosine));
+}
+
+function getInspectionReferenceLabel(reference, fallback) {
+  if (reference?.label) return reference.label;
+  if (reference?.source === "model-center") return "Model center";
+  if (reference?.source === "point-cloud") return "Point-cloud point";
+  if (reference?.source === "surface") return "Surface point";
+  return fallback;
+}
+
+function resetSurfaceInspectionUi() {
+  surfaceInspectionCache = null;
+  inspectSurfaceEmpty.hidden = false;
+  inspectSurfaceResults.hidden = true;
+  inspectSurfaceStatus.textContent = "Choose a planar surface";
+  inspectSurfaceHint.textContent =
+    "Click away from edges. Meshes and point clouds are supported.";
+}
+
+function updateDistanceInspectionUi(references) {
+  const worldPoints = viewport?.getSelectedPointsInSpace("world") || [];
+  viewport?.setMeasurementGuide(references);
+  clearInspectionButton.disabled = references.length === 0;
+
+  const firstReference = references[0];
+  const secondReference = references[1];
+  inspectPointARow.dataset.state = firstReference ? "complete" : "active";
+  inspectPointBRow.dataset.state = secondReference
+    ? "complete"
+    : firstReference
+      ? "active"
+      : "pending";
+  inspectPointALabel.textContent = getInspectionReferenceLabel(firstReference, "Point A");
+  inspectPointACoordinates.textContent = worldPoints[0]
+    ? formatPointCoordinates(worldPoints[0])
+    : "—";
+  inspectPointBLabel.textContent = getInspectionReferenceLabel(secondReference, "Point B");
+  inspectPointBCoordinates.textContent = worldPoints[1]
+    ? formatPointCoordinates(worldPoints[1])
+    : "—";
+
+  if (!firstReference) {
+    inspectDistanceStatus.textContent = "Choose point A";
+    inspectDistanceHint.textContent = "Click the first point in the viewport.";
+  } else if (!secondReference) {
+    inspectDistanceStatus.textContent = "Choose point B";
+    inspectDistanceHint.textContent = "Click the second point to complete the measurement.";
+  } else {
+    inspectDistanceStatus.textContent = "Measurement complete";
+    inspectDistanceHint.textContent = "Clear the measurement to choose another pair.";
+  }
+
+  inspectDistanceResults.hidden = worldPoints.length < 2;
+  if (worldPoints.length >= 2) {
+    const delta = worldPoints[1].clone().sub(worldPoints[0]);
+    inspectDistanceTotal.textContent = formatInspectionDistance(delta.length());
+    inspectDistancePlanar.textContent =
+      "XY " + formatInspectionDistance(Math.hypot(delta.x, delta.y));
+    inspectDeltaX.textContent = formatInspectionDistance(delta.x);
+    inspectDeltaY.textContent = formatInspectionDistance(delta.y);
+    inspectDeltaZ.textContent = formatInspectionDistance(delta.z);
+    inspectPointBRadius.textContent = formatInspectionDistance(worldPoints[1].length());
+  }
+
+  const center = viewport?.getModelCenterInfo()?.local;
+  const tolerance = (viewport?.getConstructionVisualScale() || 1) * 1e-7;
+  const centerAlreadySelected = Boolean(
+    center && references.some((reference) => reference.point.distanceTo(center) <= tolerance),
+  );
+  inspectUseModelCenterButton.disabled =
+    !viewport?.renderModel || references.length >= 2 || centerAlreadySelected;
+  inspectUseModelCenterButton.textContent = centerAlreadySelected
+    ? "Model Center Selected"
+    : "Use Model Center as Next Point";
+}
+
+function updateSurfaceInspectionUi(references) {
+  viewport?.setMeasurementGuide([]);
+  clearInspectionButton.disabled = references.length === 0;
+  if (!references.length) {
+    resetSurfaceInspectionUi();
+    return;
+  }
+
+  try {
+    const reference = references[0];
+    const cacheTolerance = viewport.getConstructionVisualScale() * 1e-9;
+    if (
+      !surfaceInspectionCache ||
+      surfaceInspectionCache.point.distanceTo(reference.point) > cacheTolerance
+    ) {
+      try {
+        surfaceInspectionCache = {
+          point: reference.point.clone(),
+          fitted: viewport.fitPlanarSurfaceReference(reference),
+          error: null,
+        };
+      } catch (error) {
+        surfaceInspectionCache = {
+          point: reference.point.clone(),
+          fitted: null,
+          error,
+        };
+      }
+    }
+    if (surfaceInspectionCache.error) throw surfaceInspectionCache.error;
+    const fittedLocal = surfaceInspectionCache.fitted;
+    const fittedWorld = viewport.getPlaneInSpace(
+      { ...fittedLocal, space: "model" },
+      "world",
+    );
+    const deviations = INSPECTION_WORLD_PLANES.map((plane) => ({
+      ...plane,
+      angle: getAcuteNormalAngle(fittedWorld.normal, plane.normal),
+    }));
+    const nearest = deviations.reduce((best, candidate) =>
+      candidate.angle < best.angle ? candidate : best,
+    );
+
+    inspectSurfaceEmpty.hidden = true;
+    inspectSurfaceResults.hidden = false;
+    inspectNearestPlane.textContent = nearest.name;
+    inspectNearestAngle.textContent = formatInspectionAngle(nearest.angle) + " deviation";
+    inspectAngleX.textContent = formatInspectionAngle(deviations[0].angle);
+    inspectAngleY.textContent = formatInspectionAngle(deviations[1].angle);
+    inspectAngleZ.textContent = formatInspectionAngle(deviations[2].angle);
+    inspectPlaneOffset.textContent = formatInspectionDistance(
+      Math.abs(fittedWorld.origin.dot(fittedWorld.normal)),
+    );
+    inspectSurfaceNormal.textContent = formatPointCoordinates(fittedWorld.normal);
+    inspectSurfacePoint.textContent = formatPointCoordinates(fittedWorld.origin);
+    inspectSurfaceFit.textContent =
+      fittedLocal.pointCount +
+      " points · local RMS " +
+      formatInspectionDistance(fittedLocal.rmsError);
+  } catch (error) {
+    inspectSurfaceEmpty.hidden = false;
+    inspectSurfaceResults.hidden = true;
+    inspectSurfaceStatus.textContent = "Surface could not be fitted";
+    inspectSurfaceHint.textContent =
+      error instanceof Error ? error.message : "Choose another flat area.";
+  }
+}
+
+function updateInspectResults(references = viewport?.selectionReferences || []) {
+  if (inspectWorkbench.hidden) return;
+  if (activeInspectMode === "distance") {
+    updateDistanceInspectionUi(references);
+  } else {
+    updateSurfaceInspectionUi(references);
+  }
+}
+
+function setInspectMode(mode, force = false) {
+  if (!force && mode === activeInspectMode) return;
+  activeInspectMode = mode === "distance" ? "distance" : "surface";
+  for (const button of inspectModeButtons) {
+    const isActive = button.dataset.inspectMode === activeInspectMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
+  inspectSurfacePanel.hidden = activeInspectMode !== "surface";
+  inspectDistancePanel.hidden = activeInspectMode !== "distance";
+  viewport?.clearConstructionSelection();
+  viewport?.configureConstructionSelection(
+    !inspectWorkbench.hidden,
+    activeInspectMode === "surface" ? "planar-surface" : "measure-distance",
+    activeInspectMode === "surface" ? 1 : 2,
+  );
+  updateInspectResults([]);
+}
+
+function closeInspectWorkbench() {
+  const wasOpen = !inspectWorkbench.hidden;
+  inspectWorkbench.hidden = true;
+  if (wasOpen) {
+    viewport?.configureConstructionSelection(false, "measure-distance", 2);
+    viewport?.clearConstructionSelection();
+  }
+  updateLeftRailWorkbench();
+  updateTransformGizmoVisibility();
+}
+
+function openInspectWorkbench() {
+  setPlaneWorkbenchOpen(false);
+  closeLayFlatWorkbench();
+  closeAlignmentWorkbenches(true);
+  inspectWorkbench.hidden = false;
+  setInspectMode(activeInspectMode, true);
+  updateLeftRailWorkbench();
+  updateTransformGizmoVisibility();
 }
 
 function updateModelCenterUi(info = viewport?.getModelCenterInfo()) {
@@ -5206,11 +5505,13 @@ function updateLeftRailWorkbench() {
     ? "Create plane tools"
     : !layFlatWorkbench.hidden
       ? "Lay Flat tools"
-      : !rotationWorkbench.hidden
-        ? "Rotate to axes tools"
-        : !levelWorkbench.hidden
-          ? "Align and level tools"
-          : null;
+      : !inspectWorkbench.hidden
+        ? "Measure and inspect tools"
+        : !rotationWorkbench.hidden
+          ? "Rotate to axes tools"
+          : !levelWorkbench.hidden
+            ? "Align and level tools"
+            : null;
   const isWorkbenchOpen = Boolean(activeLabel);
   leftRail.classList.toggle("has-active-workbench", isWorkbenchOpen);
   rightRail.classList.toggle("has-active-workbench", isWorkbenchOpen);
@@ -5224,6 +5525,7 @@ function updateLeftRailWorkbench() {
 function setPlaneWorkbenchOpen(isOpen) {
   if (isOpen) {
     closeLayFlatWorkbench();
+    closeInspectWorkbench();
     closeAlignmentWorkbenches(true);
     setPressedState(sectionButtons, null);
   }
@@ -5422,6 +5724,19 @@ function updatePlaneModeUi() {
 
 planeButton.addEventListener("click", () => setPlaneWorkbenchOpen(planeWorkbench.hidden));
 closePlaneWorkbenchButton.addEventListener("click", () => setPlaneWorkbenchOpen(false));
+inspectModeButtons.forEach((button) => {
+  button.addEventListener("click", () => setInspectMode(button.dataset.inspectMode));
+});
+closeInspectWorkbenchButton.addEventListener("click", () => {
+  closeInspectWorkbench();
+  clearActiveToolSection();
+});
+clearInspectionButton.addEventListener("click", () => {
+  viewport?.clearConstructionSelection();
+});
+inspectUseModelCenterButton.addEventListener("click", () => {
+  viewport?.selectModelCenterReference();
+});
 
 originPlaneButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -5552,6 +5867,7 @@ function closeLayFlatWorkbench() {
 
 function openLayFlatWorkbench() {
   setPlaneWorkbenchOpen(false);
+  closeInspectWorkbench();
   closeAlignmentWorkbenches(true);
   layFlatWorkbench.hidden = false;
   setLayFlatStatus(
@@ -5594,6 +5910,7 @@ function applyLayFlatSurface(reference) {
 
 function handleConstructionSelectionChange(references = []) {
   updateSelectionUi(references);
+  if (!inspectWorkbench.hidden) updateInspectResults(references);
   if (!layFlatWorkbench.hidden && !layFlatApplying && references.length === 1) {
     applyLayFlatSurface(references[0]);
   }
@@ -5644,6 +5961,7 @@ function updateTransformGizmoVisibility() {
   viewport?.setTransformGizmoVisible(
     planeWorkbench.hidden &&
       layFlatWorkbench.hidden &&
+      inspectWorkbench.hidden &&
       rotationWorkbench.hidden &&
       levelWorkbench.hidden,
   );
@@ -5837,6 +6155,7 @@ async function analyzeModelOrientation() {
 function openRotationWorkbench() {
   setPlaneWorkbenchOpen(false);
   closeLayFlatWorkbench();
+  closeInspectWorkbench();
   closeLevelWorkbench(true);
   rotationWorkbench.hidden = false;
   updateLeftRailWorkbench();
@@ -6163,6 +6482,7 @@ function handleAlignmentPlanePick(hit) {
 function openLevelWorkbench() {
   setPlaneWorkbenchOpen(false);
   closeLayFlatWorkbench();
+  closeInspectWorkbench();
   closeRotationWorkbench(true);
   levelWorkbench.hidden = false;
   updateLeftRailWorkbench();
@@ -6275,7 +6595,10 @@ repickSnapTargetButton.addEventListener("click", resetSnapAlignmentTarget);
 if (viewport) {
   viewport.onSelectionChange = handleConstructionSelectionChange;
   viewport.onPlanesChange = renderCreatedPlanes;
-  viewport.onModelCenterChange = updateModelCenterUi;
+  viewport.onModelCenterChange = (info) => {
+    updateModelCenterUi(info);
+    updateInspectResults();
+  };
   viewport.onAlignmentPlanePick = handleAlignmentPlanePick;
   viewport.onAlignmentSnapPick = handleSnapAlignmentPick;
 }
@@ -6804,6 +7127,10 @@ window.addEventListener("keydown", (event) => {
     if (!planeWorkbench.hidden) setPlaneWorkbenchOpen(false);
     if (!layFlatWorkbench.hidden) {
       closeLayFlatWorkbench();
+      clearActiveToolSection();
+    }
+    if (!inspectWorkbench.hidden) {
+      closeInspectWorkbench();
       clearActiveToolSection();
     }
     if (!rotationWorkbench.hidden || !levelWorkbench.hidden) {

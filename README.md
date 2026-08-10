@@ -24,9 +24,10 @@ The application is built with HTML, CSS, JavaScript, and Three.js. It has no fra
 2. Inspect the model as a mesh, edge view, vertex view, or point cloud.
 3. Move, rotate, and scale with numeric fields or the transform gizmo.
 4. Create automatic or manual construction planes from the model geometry.
-5. Align the model to world axes, lay a selected surface flat, or drop it onto the XY bed.
-6. Review or restore any operation from Transform History.
-7. Export the transformed model in the same format as the imported file.
+5. Measure planar angular deviation or exact point-to-point distance directly in the viewport.
+6. Align the model to world axes, lay a selected surface flat, or drop it onto the XY bed.
+7. Review or restore any operation from Transform History.
+8. Export the transformed model in the same format as the imported file.
 
 ## Features
 
@@ -55,6 +56,15 @@ The application is built with HTML, CSS, JavaScript, and Three.js. It has no fra
 - Best-fit, tangent, offset, angle, midplane, and perpendicular planes
 - Model-space planes that follow model transformations
 - Fixed Top, Front, and Right world-origin grids
+
+### Measure and inspect
+
+- Local planar-surface fitting on meshes and point clouds
+- Angular deviation of a surface normal from the world X, Y, and Z axes
+- Nearest Top, Front, or Right datum plane and deviation from exact alignment
+- Plane offset from the world origin, fitted normal, point, sample count, and RMS error
+- Point-to-point 3D distance with ΔX, ΔY, ΔZ, XY projection, and distance to origin
+- CAD object-snap support and an in-viewport measurement guide
 
 ### Editing and navigation
 
