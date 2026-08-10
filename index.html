@@ -254,7 +254,7 @@
             <div class="tool-gizmo-slot" id="toolGizmoSlot"></div>
             <button class="rail-button" type="button" data-section="rotation" aria-pressed="false" aria-controls="rotationWorkbench">
               <svg class="icon" aria-hidden="true"><use href="#icon-cube"></use></svg>
-              <span>Rotate to Axes</span>
+              <span>Auto Orient</span>
             </button>
             <button class="rail-button" type="button" data-section="level" aria-pressed="false" aria-controls="levelWorkbench">
               <svg class="icon" aria-hidden="true"><use href="#icon-level"></use></svg>
@@ -618,7 +618,7 @@
           <header class="workbench-header">
             <div>
               <p class="eyebrow">Automatic alignment</p>
-              <h2 id="rotationWorkbenchTitle">Rotate to Axes</h2>
+              <h2 id="rotationWorkbenchTitle">Auto Orient</h2>
             </div>
             <button class="icon-button" id="closeRotationWorkbench" type="button" aria-label="Cancel automatic alignment">
               <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
@@ -626,7 +626,7 @@
           </header>
 
           <div class="workbench-scroll">
-            <p class="alignment-copy">MeshToZero analyzes the convex hull, finds a best-fit oriented box, and keeps position and scale unchanged.</p>
+            <p class="alignment-copy">MeshToZero detects planar or dominant surface directions, cylindrical or elongated axes, and whole-model principal directions. Choose the interpretation that matches your model; position and scale stay unchanged.</p>
 
             <div class="alignment-status" id="rotationAnalysisStatus" role="status" aria-live="polite">
               <span class="alignment-status-dot" aria-hidden="true"></span>
@@ -634,28 +634,43 @@
             </div>
 
             <section class="orientation-results" id="orientationResults" aria-labelledby="orientationResultsTitle" hidden>
+              <div class="orientation-target-field">
+                <span class="workbench-label">Align detected plane with</span>
+                <div class="orientation-target-buttons" role="group" aria-label="Auto orientation target plane">
+                  <button type="button" data-orientation-target="x" aria-pressed="false"><strong>X</strong><small>Right · YZ</small></button>
+                  <button type="button" data-orientation-target="y" aria-pressed="false"><strong>Y</strong><small>Front · XZ</small></button>
+                  <button class="is-active" type="button" data-orientation-target="z" aria-pressed="true"><strong>Z</strong><small>Top · XY</small></button>
+                </div>
+              </div>
+
               <div class="alignment-section-heading">
-                <p class="workbench-label" id="orientationResultsTitle">Choose the correct up side</p>
+                <p class="workbench-label" id="orientationResultsTitle">Detected reference planes</p>
                 <button class="text-button" id="recalculateOrientation" type="button">Recalculate</button>
               </div>
               <div class="orientation-candidate-list" id="orientationCandidateList" role="listbox" aria-label="Automatic orientation candidates"></div>
-              <p class="alignment-hint">Selecting an option previews it. Turn 90° changes which way the model faces while keeping every axis exact.</p>
-              <button class="alignment-adjust-button" id="turnOrientation" type="button" disabled>
-                <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
-                <span>Turn 90° around Z</span>
-              </button>
+              <p class="alignment-hint">Selecting a result previews both the rotation and a blue reference plane through the model center. The plane is saved as construction geometry when you apply.</p>
+              <div class="orientation-adjustments">
+                <button class="alignment-adjust-button" id="flipOrientationNormal" type="button" aria-pressed="false" disabled>
+                  <svg class="icon" aria-hidden="true"><use href="#icon-level"></use></svg>
+                  <span>Flip side</span>
+                </button>
+                <button class="alignment-adjust-button" id="turnOrientation" type="button" disabled>
+                  <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
+                  <span>Turn 90° around Z</span>
+                </button>
+              </div>
             </section>
 
             <button class="alignment-analyze-button" id="analyzeOrientation" type="button">
               <svg class="icon" aria-hidden="true"><use href="#icon-cube"></use></svg>
-              <span>Analyze Orientation</span>
+              <span>Find Alignment Variants</span>
             </button>
 
             <div class="alignment-actions">
               <button class="alignment-cancel-button" id="cancelOrientation" type="button">Cancel</button>
               <button class="alignment-apply-button" id="applyOrientation" type="button" disabled>
                 <svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg>
-                <span>Apply Rotation</span>
+                <span>Apply Auto Orient</span>
               </button>
             </div>
           </div>

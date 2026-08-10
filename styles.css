@@ -675,9 +675,59 @@ input:focus-visible {
   gap: 10px;
 }
 
+.orientation-target-field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+}
+
+.orientation-target-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.orientation-target-buttons button {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 7px 5px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: center;
+}
+
+.orientation-target-buttons button:hover {
+  border-color: var(--border-strong);
+}
+
+.orientation-target-buttons button.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.orientation-target-buttons strong {
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.orientation-target-buttons small {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .orientation-candidate-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 7px;
   margin-top: 9px;
 }
@@ -686,8 +736,8 @@ input:focus-visible {
   display: grid;
   min-width: 0;
   gap: 3px;
-  min-height: 55px;
-  padding: 8px 9px;
+  min-height: 68px;
+  padding: 9px 10px;
   background: var(--surface-solid);
   border: 1px solid var(--border);
   border-radius: 11px;
@@ -706,22 +756,68 @@ input:focus-visible {
   color: var(--accent-strong);
 }
 
-.orientation-candidate strong,
+.orientation-candidate-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.orientation-candidate-heading strong,
+.orientation-candidate-angle,
 .orientation-candidate small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.orientation-candidate strong {
+.orientation-candidate-heading strong {
   font-size: 11px;
   font-weight: 710;
+}
+
+.orientation-candidate-angle {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+}
+
+.orientation-candidate-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.orientation-candidate-type {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .orientation-candidate small {
   color: var(--text-tertiary);
   font-size: 9px;
   font-variant-numeric: tabular-nums;
+}
+
+.orientation-adjustments {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.orientation-adjustments .alignment-adjust-button {
+  margin-top: 0;
 }
 
 .alignment-hint {
@@ -4204,6 +4300,9 @@ body {
 .bounds-readout,
 .create-plane-button,
 .orientation-candidate,
+.orientation-target-field,
+.orientation-target-buttons button,
+.orientation-candidate-type,
 .alignment-status,
 .alignment-empty,
 .alignment-pick-tip,
