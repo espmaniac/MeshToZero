@@ -5214,6 +5214,13 @@ historyList.addEventListener("click", (event) => {
 setHistoryPanelCollapsed(window.matchMedia("(max-width: 700px)").matches);
 updateHistoryUi();
 
+function applyTheme() {
+  document.documentElement.dataset.theme = "gray";
+  document.querySelector('meta[name="theme-color"]').content =
+    getComputedStyle(document.documentElement).getPropertyValue("--toolbar-color").trim();
+  viewport?.updateTheme();
+}
+
 const leftRail = document.querySelector(".left-rail");
 const rightRail = document.querySelector(".right-rail");
 const toolPanel = document.querySelector("#toolPanel");
@@ -7617,4 +7624,4 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "3") displayButtons[2].click();
 });
 
-viewport?.updateTheme();
+applyTheme();

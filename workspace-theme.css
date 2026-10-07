@@ -701,3 +701,393 @@
     max-height: calc(100svh - 240px);
   }
 }
+
+/* --------------------------------------------------------------------------
+   Single Logic-inspired neutral gray theme
+   One permanent interface theme: no light/dark variants, no glow, no gradients.
+   Palette is intentionally limited to the gray values sampled from the reference.
+   -------------------------------------------------------------------------- */
+:root,
+:root[data-theme] {
+  color-scheme: dark;
+
+  --page-background: #616161;
+  --workspace-background: #616161;
+  --canvas-background: #616161;
+
+  --toolbar-color: #a5a5a5;
+  --cad-chrome: #484848;
+  --cad-panel: #616161;
+  --cad-panel-raised: #858585;
+  --cad-panel-deep: #545454;
+  --cad-line: #434343;
+  --cad-line-soft: #808080;
+
+  --surface: #616161;
+  --surface-solid: #858585;
+  --surface-muted: #545454;
+  --surface-hover: #707070;
+
+  --control-face: #545454;
+  --input-background: #484848;
+
+  --text-primary: #f2f2f2;
+  --text-secondary: #dedede;
+  --text-tertiary: #bcbcbc;
+
+  --border: #484848;
+  --border-strong: #434343;
+
+  --accent: #2f80d9;
+  --accent-hover: #3f8fe5;
+  --accent-soft: #4f7198;
+  --accent-soft-strong: #2f80d9;
+  --accent-strong: #ffffff;
+  --accent-contrast: #ffffff;
+
+  --action-background: #2f80d9;
+  --action-hover: #3f8fe5;
+  --focus-ring: rgba(47, 128, 217, 0.42);
+
+  --grid-minor: rgba(255, 255, 255, 0.075);
+  --grid-major: rgba(255, 255, 255, 0.15);
+  --cube-light: #d8d8d8;
+  --cube-mid: #b4b4b4;
+  --cube-dark: #858585;
+  --cube-edge: rgba(48, 48, 48, 0.68);
+  --drop-overlay: rgba(97, 97, 97, 0.94);
+}
+
+body {
+  background: #616161;
+  color: var(--text-primary);
+  transition: none;
+}
+
+.workspace,
+#viewportCanvas {
+  background: #616161;
+  transition: none;
+}
+
+.workspace {
+  border-color: #434343;
+}
+
+/* Light Logic-like application bar. */
+.topbar {
+  background: #a5a5a5;
+  color: #242424;
+  border-bottom: 1px solid #616161;
+}
+
+.brand,
+.cad-menu summary {
+  color: #242424;
+}
+
+.brand img {
+  filter: none !important;
+}
+
+.header-actions .action-button,
+.header-actions .theme-toggle {
+  background: #858585;
+  border-color: #616161;
+  color: #242424;
+  box-shadow: none;
+  background-image: none;
+}
+
+.header-actions .action-button:not(:disabled):hover,
+.header-actions .theme-toggle:hover {
+  background: #949494;
+  border-color: #545454;
+  color: #1f1f1f;
+  transform: none;
+}
+
+.header-actions .action-button:active,
+.header-actions .theme-toggle:active {
+  background: #808080;
+  transform: none;
+}
+
+.cad-menu-popover {
+  background: #434343;
+  border: 1px solid #313131;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  color: #f2f2f2;
+}
+
+.cad-menu-popover button {
+  color: #f2f2f2;
+  background: transparent;
+}
+
+.cad-menu-popover button:hover {
+  background: #616161;
+}
+
+/* Logic-like dark command strip with flat selection states. */
+.command-strip {
+  background: #484848;
+  border-bottom-color: #313131;
+}
+
+.command-strip .tool-panel {
+  background: #484848;
+}
+
+.command-strip .rail-button,
+.command-strip .gizmo-option {
+  color: #eeeeee;
+  border: 1px solid transparent;
+  box-shadow: none;
+  background-image: none;
+}
+
+.command-strip .rail-button:hover,
+.command-strip .gizmo-option:hover {
+  background: #616161;
+  color: #ffffff;
+}
+
+.command-strip .rail-button.is-active,
+.command-strip .gizmo-option.is-active {
+  background: #2f80d9;
+  border-color: #246cad;
+  color: #ffffff;
+}
+
+/* Scene browser and inspector use the same permanent middle-gray surface. */
+.browser-panel,
+.transform-card,
+.inspector-panel,
+.plane-workbench,
+.alignment-workbench,
+.coordinate-dock {
+  background: #616161;
+  border-color: #434343;
+  color: #f2f2f2;
+  box-shadow: none;
+  background-image: none;
+}
+
+.browser-header,
+.browser-group > h3,
+.workbench-header,
+.settings-header {
+  background: #545454;
+  border-color: #434343;
+  color: #f2f2f2;
+}
+
+.browser-tree,
+.browser-group,
+.workbench-scroll {
+  background: #616161;
+}
+
+.browser-model-row {
+  background: #707070;
+  color: #f2f2f2;
+}
+
+.browser-model-row:hover {
+  background: #808080;
+}
+
+#browserHistorySlot .history-entry {
+  color: #f2f2f2;
+}
+
+#browserHistorySlot .history-entry:hover {
+  background: #707070;
+}
+
+#browserHistorySlot .history-entry.is-current,
+#browserHistorySlot .history-entry[aria-current="true"] {
+  background: #4f7198;
+  color: #ffffff;
+}
+
+/* Compact control faces: flat medium/dark grays, no gradients or glow. */
+.method-button,
+.plane-mode-button,
+.icon-button,
+.text-button,
+.model-center-card,
+.model-center-use,
+.reference-selection,
+.bounds-readout,
+.orientation-candidate,
+.alignment-summary,
+.alignment-adjust-button,
+.level-mode-button,
+.alignment-empty,
+.inspect-reference-section,
+.inspect-primary-result,
+.inspect-value-grid > div,
+.inspect-detail-list,
+.origin-plane-toggle,
+.gizmo-segment,
+.gizmo-option,
+.inspect-axis-buttons button,
+.orientation-target-buttons button,
+.snap-settings-button,
+.settings-content .status-snap-button {
+  background: #545454;
+  border-color: #434343;
+  color: #f2f2f2;
+  box-shadow: none;
+  background-image: none;
+}
+
+.method-button:hover:not(.is-active),
+.plane-mode-button:hover:not(.is-active),
+.icon-button:hover,
+.text-button:hover,
+.origin-plane-toggle:hover,
+.gizmo-option:hover {
+  background: #616161;
+}
+
+.method-button.is-active,
+.plane-mode-button.is-active,
+.settings-content .status-snap-button.is-active {
+  background: #2f80d9;
+  border-color: #246cad;
+  color: #ffffff;
+}
+
+.workbench-field input,
+.workbench-field select,
+.axis-field,
+.unit-input,
+.gizmo-snap-value,
+.transform-card input,
+.transform-card select {
+  background: #484848;
+  border-color: #434343;
+  color: #f2f2f2;
+  box-shadow: none;
+  background-image: none;
+}
+
+.workbench-field input:focus,
+.workbench-field select:focus,
+.axis-field:focus,
+.unit-input:focus,
+.gizmo-snap-value:focus,
+.transform-card input:focus,
+.transform-card select:focus {
+  border-color: #2f80d9;
+  outline-color: rgba(47, 128, 217, 0.42);
+}
+
+.primary-button,
+.create-plane-button,
+.alignment-analyze-button,
+.alignment-apply-button {
+  background: #2f80d9;
+  border-color: #246cad;
+  color: #ffffff;
+  box-shadow: none;
+  background-image: none;
+}
+
+.primary-button:hover,
+.create-plane-button:hover,
+.alignment-analyze-button:hover,
+.alignment-apply-button:hover {
+  background: #3f8fe5;
+}
+
+/* View/display controls follow Logic's segmented control treatment. */
+.viewport-display-slot .display-tabs,
+.view-toolbar {
+  background: #545454;
+  border-color: #434343;
+  box-shadow: none;
+  background-image: none;
+}
+
+.viewport-display-slot .display-tab,
+.view-button,
+.history-button {
+  color: #eeeeee;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.viewport-display-slot .display-tab:hover,
+.view-button:hover:not(:disabled),
+.history-button:hover:not(:disabled) {
+  background: #616161;
+  color: #ffffff;
+}
+
+.viewport-display-slot .display-tab.is-active {
+  background: #2f80d9;
+  border-color: #246cad;
+  color: #ffffff;
+}
+
+/* Status bar and coordinate dock mirror the same medium-gray system. */
+.cad-statusbar {
+  background: #545454;
+  border-top: 1px solid #434343;
+  color: #eeeeee;
+}
+
+.coordinate-dock {
+  background: #616161;
+}
+
+.status-position,
+.shortcut-hint,
+.status-help-slot {
+  color: #dedede;
+}
+
+.snap-settings-button {
+  background: #616161;
+}
+
+.toggle-track {
+  background: #434343;
+}
+
+.toggle-track span {
+  background: #d8d8d8;
+}
+
+input:checked + .toggle-track,
+.toggle-track.is-active {
+  background: #2f80d9;
+}
+
+/* Keep dialogs/popovers in the same single gray theme. */
+.settings-dialog {
+  background: #616161;
+  border-color: #434343;
+  color: #f2f2f2;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.settings-dialog::backdrop {
+  background: rgba(49, 49, 49, 0.58);
+}
+
+.settings-footer {
+  border-color: #434343;
+}
+
+/* Theme UI is intentionally absent: the site has one permanent gray theme. */
+#themeToggle,
+.theme-icon {
+  display: none !important;
+}
+
