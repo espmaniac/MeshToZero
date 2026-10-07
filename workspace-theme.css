@@ -6,7 +6,6 @@
   --cad-left-width: 224px;
   --cad-inspector-width: 304px;
   --toolbar-color: #acacac;
-  --toolbar-highlight: #bdbdbd;
   --cad-chrome: #b4b4b4;
   --cad-panel: #d0d0d0;
   --cad-panel-raised: #dddddd;
@@ -29,15 +28,13 @@
   --accent-strong: #204e82;
   --accent-contrast: #ffffff;
   --focus-ring: #387fce;
-  --control-top: #e2e2e2;
-  --control-bottom: #c8c8c8;
+  --control-face: #d2d2d2;
   --input-background: #eeeeee;
   --action-background: #3576bf;
   --action-hover: #2d67a7;
 }
 :root[data-theme="dark"] {
   --toolbar-color: #999999;
-  --toolbar-highlight: #b2b2b2;
   --cad-chrome: #484848;
   --cad-panel: #565656;
   --cad-panel-raised: #626262;
@@ -60,8 +57,7 @@
   --accent-strong: #ffffff;
   --accent-contrast: #162b42;
   --focus-ring: #89beff;
-  --control-top: #666666;
-  --control-bottom: #555555;
+  --control-face: #5c5c5c;
   --input-background: #3d3d3d;
   --action-background: #377ac9;
   --action-hover: #2c68ae;
@@ -73,7 +69,7 @@
 }
 .topbar {
   height: 42px;
-  background: linear-gradient(var(--toolbar-highlight), var(--toolbar-color));
+  background: var(--toolbar-color);
   color: #232323;
   border-bottom-color: #333333;
 }
@@ -105,7 +101,7 @@
 .theme-toggle {
   height: 28px;
   border-radius: 4px;
-  background: linear-gradient(#bcbcbc, #a1a1a1);
+  background: #aeaeae;
   border-color: #7d7d7d;
   color: #252525;
 }
@@ -134,7 +130,7 @@
   right: 0;
   left: 0;
   height: 50px;
-  background: linear-gradient(var(--control-top), var(--cad-chrome));
+  background: var(--cad-chrome);
   border-bottom: 1px solid var(--cad-line);
 }
 .command-strip .tool-panel {
@@ -205,7 +201,7 @@
 }
 .browser-header,
 .browser-group > h3 {
-  background: linear-gradient(var(--control-top), var(--control-bottom));
+  background: var(--control-face);
   border-bottom: 1px solid var(--cad-line);
 }
 .browser-header h2 {
@@ -238,7 +234,7 @@
 }
 .workbench-header {
   min-height: 43px;
-  background: linear-gradient(var(--control-top), var(--control-bottom));
+  background: var(--control-face);
 }
 .workbench-header h2 {
   display: flex;
@@ -286,7 +282,7 @@
   font-size: 10px;
   font-weight: 500;
   border-radius: 4px;
-  background: linear-gradient(var(--control-top), var(--control-bottom));
+  background: var(--control-face);
   border: 1px solid var(--border-strong);
 }
 .method-button[data-plane-method="perpendicular"] {
@@ -386,7 +382,7 @@
   border-radius: 3px;
 }
 .display-tab.is-active {
-  background: var(--control-top);
+  background: var(--control-face);
   color: var(--text-primary);
 }
 .view-toolbar {
