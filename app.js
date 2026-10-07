@@ -5214,28 +5214,12 @@ historyList.addEventListener("click", (event) => {
 setHistoryPanelCollapsed(window.matchMedia("(max-width: 700px)").matches);
 updateHistoryUi();
 
-function applyTheme(theme, persist = true) {
-  document.documentElement.dataset.theme = theme;
-  const themeToggle = document.querySelector("#themeToggle");
-  const nextTheme = theme === "dark" ? "light" : "dark";
-  themeToggle.setAttribute("aria-label", "Switch to " + nextTheme + " theme");
+function applyTheme() {
+  document.documentElement.dataset.theme = "gray";
   document.querySelector('meta[name="theme-color"]').content =
     getComputedStyle(document.documentElement).getPropertyValue("--toolbar-color").trim();
-  if (persist) localStorage.setItem("mesh-to-zero-theme", theme);
   viewport?.updateTheme();
 }
-
-document.querySelector("#themeToggle").addEventListener("click", () => {
-  const currentTheme = document.documentElement.dataset.theme;
-  applyTheme(currentTheme === "dark" ? "light" : "dark");
-});
-
-const themePreference = window.matchMedia("(prefers-color-scheme: dark)");
-themePreference.addEventListener("change", (event) => {
-  if (!localStorage.getItem("mesh-to-zero-theme")) {
-    applyTheme(event.matches ? "dark" : "light", false);
-  }
-});
 
 const leftRail = document.querySelector(".left-rail");
 const rightRail = document.querySelector(".right-rail");
@@ -5368,7 +5352,6 @@ function runCadCommand(command) {
   if (command === "mesh") selectDisplayMode("mesh");
   if (command === "vertices") selectDisplayMode("vertices");
   if (command === "edges") selectDisplayMode("edges");
-  if (command === "theme") document.querySelector("#themeToggle").click();
 }
 
 document.querySelectorAll("[data-cad-command]").forEach((button) => {
@@ -7641,4 +7624,4 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "3") displayButtons[2].click();
 });
 
-applyTheme(document.documentElement.dataset.theme || "light", false);
+applyTheme();
