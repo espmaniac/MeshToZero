@@ -1,35 +1,4 @@
 :root {
-  color-scheme: light;
-  --page-background: #b3b3b3;
-  --workspace-background: #b3b3b3;
-  --canvas-background: #b3b3b3;
-  --surface: rgba(238, 238, 238, 0.9);
-  --surface-solid: #eeeeee;
-  --surface-muted: #dedede;
-  --surface-hover: #d0d0d0;
-  --text-primary: #242424;
-  --text-secondary: #626262;
-  --text-tertiary: #888888;
-  --border: rgba(36, 36, 36, 0.12);
-  --border-strong: rgba(36, 36, 36, 0.2);
-  --accent: #5a5a5a;
-  --accent-hover: #484848;
-  --accent-soft: #dedede;
-  --accent-soft-strong: rgba(72, 72, 72, 0.28);
-  --accent-strong: #383838;
-  --accent-contrast: #ffffff;
-  --danger: #b13e4d;
-  --grid-minor: rgba(48, 48, 48, 0.09);
-  --grid-major: rgba(48, 48, 48, 0.17);
-  --cube-light: #d8d8d8;
-  --cube-mid: #b4b4b4;
-  --cube-dark: #8c8c8c;
-  --cube-edge: rgba(48, 48, 48, 0.62);
-  --focus-ring: rgba(72, 72, 72, 0.34);
-  --drop-overlay: rgba(179, 179, 179, 0.92);
-}
-
-:root[data-theme="dark"] {
   color-scheme: dark;
   --page-background: #484848;
   --workspace-background: #484848;
@@ -295,7 +264,7 @@ input:focus-visible {
   transition: filter 180ms ease;
 }
 
-:root[data-theme="dark"] .brand img {
+:root .brand img {
   filter: brightness(1.85);
 }
 
@@ -400,18 +369,6 @@ input:focus-visible {
 .theme-toggle {
   width: 46px;
   padding: 0;
-}
-
-.theme-icon-sun {
-  display: none;
-}
-
-:root[data-theme="dark"] .theme-icon-sun {
-  display: block;
-}
-
-:root[data-theme="dark"] .theme-icon-moon {
-  display: none;
 }
 
 .left-rail {
@@ -3183,28 +3140,6 @@ input:focus-visible {
   --cad-browser-width: 272px;
   --cad-left-width: calc(var(--cad-tool-width) + var(--cad-browser-width));
   --cad-inspector-width: 338px;
-  --cad-chrome: #d7d7d7;
-  --cad-panel: #dedede;
-  --cad-panel-raised: #e8e8e8;
-  --cad-panel-deep: #cccccc;
-  --cad-line: rgba(25, 25, 25, 0.24);
-  --cad-line-soft: rgba(25, 25, 25, 0.13);
-  --cad-accent: #087fae;
-  --surface: var(--cad-panel);
-  --surface-solid: var(--cad-panel-raised);
-  --surface-muted: var(--cad-panel-deep);
-  --surface-hover: #c5c5c5;
-  --border: var(--cad-line-soft);
-  --border-strong: var(--cad-line);
-  --accent: var(--cad-accent);
-  --accent-hover: #056d96;
-  --accent-soft: rgba(8, 127, 174, 0.16);
-  --accent-soft-strong: rgba(8, 127, 174, 0.38);
-  --accent-strong: #035f82;
-  --focus-ring: rgba(8, 127, 174, 0.4);
-}
-
-:root[data-theme="dark"] {
   --cad-chrome: #202020;
   --cad-panel: #292929;
   --cad-panel-raised: #323232;
