@@ -1,0 +1,734 @@
+/* Neutral desktop surfaces and compact geometry controls. */
+:root {
+  --cad-topbar-height: 92px;
+  --cad-tool-width: 0px;
+  --cad-browser-width: 224px;
+  --cad-left-width: 224px;
+  --cad-inspector-width: 304px;
+  --toolbar-color: #acacac;
+  --toolbar-highlight: #bdbdbd;
+  --cad-chrome: #b4b4b4;
+  --cad-panel: #d0d0d0;
+  --cad-panel-raised: #dddddd;
+  --cad-panel-deep: #bfbfbf;
+  --cad-line: #929292;
+  --cad-line-soft: #b1b1b1;
+  --cad-accent: #3676bd;
+  --canvas-background: #a3a3a3;
+  --surface: var(--cad-panel);
+  --surface-solid: var(--cad-panel-raised);
+  --surface-muted: var(--cad-panel-deep);
+  --surface-hover: #c0c0c0;
+  --text-primary: #242424;
+  --text-secondary: #444444;
+  --text-tertiary: #555555;
+  --accent: #3676bd;
+  --accent-hover: #2864a5;
+  --accent-soft: #b3c5da;
+  --accent-soft-strong: #7099c8;
+  --accent-strong: #204e82;
+  --accent-contrast: #ffffff;
+  --focus-ring: #387fce;
+  --control-top: #e2e2e2;
+  --control-bottom: #c8c8c8;
+  --input-background: #eeeeee;
+  --action-background: #3576bf;
+  --action-hover: #2d67a7;
+}
+:root[data-theme="dark"] {
+  --toolbar-color: #999999;
+  --toolbar-highlight: #b2b2b2;
+  --cad-chrome: #484848;
+  --cad-panel: #565656;
+  --cad-panel-raised: #626262;
+  --cad-panel-deep: #484848;
+  --cad-line: #353535;
+  --cad-line-soft: #484848;
+  --cad-accent: #75aff0;
+  --canvas-background: #333333;
+  --surface: var(--cad-panel);
+  --surface-solid: var(--cad-panel-raised);
+  --surface-muted: var(--cad-panel-deep);
+  --surface-hover: #666666;
+  --text-primary: #f4f4f4;
+  --text-secondary: #e0e0e0;
+  --text-tertiary: #cdcdcd;
+  --accent: #75aff0;
+  --accent-hover: #8dbdf3;
+  --accent-soft: #425f80;
+  --accent-soft-strong: #6e9aca;
+  --accent-strong: #ffffff;
+  --accent-contrast: #162b42;
+  --focus-ring: #89beff;
+  --control-top: #666666;
+  --control-bottom: #555555;
+  --input-background: #3d3d3d;
+  --action-background: #377ac9;
+  --action-hover: #2c68ae;
+}
+#viewportCanvas {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.topbar {
+  height: 42px;
+  background: linear-gradient(var(--toolbar-highlight), var(--toolbar-color));
+  color: #232323;
+  border-bottom-color: #333333;
+}
+.brand {
+  width: auto;
+  min-width: 170px;
+  color: #232323;
+  font-size: 16px;
+}
+:root[data-theme="dark"] .brand img {
+  filter: none;
+}
+.cad-menu summary {
+  color: #303030;
+  font-size: 12px;
+  padding: 0 12px;
+}
+.cad-menu-popover {
+  border-radius: 5px;
+  background: var(--surface);
+}
+.cad-menu-popover button {
+  border-radius: 3px;
+}
+.header-actions {
+  gap: 6px;
+}
+.action-button,
+.theme-toggle {
+  height: 28px;
+  border-radius: 4px;
+  background: linear-gradient(#bcbcbc, #a1a1a1);
+  border-color: #7d7d7d;
+  color: #252525;
+}
+.action-button {
+  min-width: 92px;
+  font-size: 11px;
+}
+.theme-toggle {
+  width: 28px;
+}
+#importButton .icon {
+  color: inherit;
+}
+.action-button:not(:disabled):hover,
+.theme-toggle:hover {
+  background: #c5c5c5;
+  color: #222222;
+}
+.scene-toggle {
+  display: none;
+}
+.command-strip {
+  position: absolute;
+  z-index: 30;
+  top: 42px;
+  right: 0;
+  left: 0;
+  height: 50px;
+  background: linear-gradient(var(--control-top), var(--cad-chrome));
+  border-bottom: 1px solid var(--cad-line);
+}
+.command-strip .tool-panel {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  width: 100%;
+  padding: 5px 10px;
+  gap: 5px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow-x: auto;
+  overflow-y: hidden;
+  align-items: center;
+}
+.command-strip .rail-button,
+.command-strip .gizmo-option {
+  width: auto;
+  min-width: max-content;
+  min-height: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  flex-direction: row;
+  gap: 7px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-primary);
+}
+.command-strip .rail-button .icon,
+.command-strip .gizmo-option .icon {
+  width: 21px;
+  height: 21px;
+}
+.command-strip .rail-button span {
+  position: static;
+  width: auto;
+  height: auto;
+  clip-path: none;
+}
+.command-strip .tool-gizmo-slot {
+  display: flex;
+}
+.command-strip .gizmo-segment {
+  display: flex;
+  gap: 4px;
+}
+.command-strip .rail-button.is-active,
+.command-strip .gizmo-option.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft-strong);
+  color: var(--accent-strong);
+}
+.command-strip .rail-button:hover,
+.command-strip .gizmo-option:hover {
+  background: var(--surface-hover);
+}
+.left-rail,
+.left-rail.is-workbench-mode,
+.left-rail.has-active-workbench {
+  top: 92px;
+  width: var(--cad-browser-width);
+  grid-template-columns: 1fr;
+}
+.browser-panel {
+  grid-column: 1;
+}
+.browser-header,
+.browser-group > h3 {
+  background: linear-gradient(var(--control-top), var(--control-bottom));
+  border-bottom: 1px solid var(--cad-line);
+}
+.browser-header h2 {
+  font-size: 13px;
+}
+.browser-model-row {
+  background: var(--surface-hover);
+}
+.browser-model-row strong {
+  font-size: 12px;
+  font-weight: 550;
+}
+#browserHistorySlot .history-entry {
+  border-radius: 3px;
+}
+.right-rail {
+  top: 92px;
+  bottom: 168px;
+}
+.right-rail .transform-card {
+  max-height: 52%;
+  flex-basis: 330px;
+}
+.right-rail:not(.has-active-workbench) .inspector-panel {
+  display: none;
+}
+.right-rail:not(.has-active-workbench) .transform-card {
+  max-height: 100%;
+  flex: 1;
+}
+.workbench-header {
+  min-height: 43px;
+  background: linear-gradient(var(--control-top), var(--control-bottom));
+}
+.workbench-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 550;
+}
+.workbench-header .eyebrow {
+  display: none;
+}
+.workbench-scroll {
+  padding: 12px 14px;
+}
+.choice-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  stroke-width: 1.5;
+}
+.choice-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.choice-label .icon {
+  width: 15px;
+  height: 15px;
+}
+.plane-methods {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+.plane-methods[data-plane-mode-panel="automatic"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.method-button {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  min-height: 53px;
+  padding: 5px 3px;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 4px;
+  background: linear-gradient(var(--control-top), var(--control-bottom));
+  border: 1px solid var(--border-strong);
+}
+.method-button[data-plane-method="perpendicular"] {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  min-height: 32px;
+}
+.method-button.is-active,
+.plane-mode-button.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: var(--accent-soft-strong);
+}
+.method-button:hover:not(.is-active) {
+  background: var(--surface-hover);
+}
+.plane-mode-button {
+  display: grid;
+  grid-template-columns: 21px 1fr;
+  column-gap: 6px;
+  padding: 7px 9px;
+  border-radius: 4px;
+}
+.plane-mode-button .icon {
+  grid-row: span 2;
+  align-self: center;
+}
+.plane-mode-button strong {
+  font-size: 11px;
+}
+.plane-mode-button small {
+  font-size: 9px;
+}
+.workbench-label {
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+}
+.workbench-field input,
+.workbench-field select,
+.axis-field,
+.unit-input,
+.gizmo-snap-value {
+  background: var(--input-background);
+  border-radius: 4px;
+  border-color: var(--cad-line);
+}
+.icon-button,
+.text-button,
+.plane-mode-switch,
+.model-center-card,
+.model-center-use,
+.reference-selection,
+.bounds-readout,
+.orientation-candidate,
+.alignment-summary,
+.alignment-adjust-button,
+.level-mode-button,
+.alignment-empty,
+.inspect-reference-section,
+.inspect-primary-result,
+.inspect-value-grid > div,
+.inspect-detail-list,
+.origin-plane-toggle,
+.gizmo-segment,
+.gizmo-option,
+.inspect-axis-buttons button,
+.orientation-target-buttons button {
+  border-radius: 4px;
+}
+.primary-button,
+.create-plane-button,
+.alignment-analyze-button,
+.alignment-apply-button {
+  border-radius: 4px;
+  background: var(--action-background);
+  color: #ffffff;
+  font-weight: 550;
+}
+.primary-button:hover,
+.create-plane-button:hover,
+.alignment-analyze-button:hover,
+.alignment-apply-button:hover {
+  background: var(--action-hover);
+}
+.toggle-track span {
+  background: #e5e5e5;
+}
+.viewport-display-slot {
+  top: 102px;
+}
+.viewport-display-slot .display-tabs {
+  border-radius: 4px;
+}
+.viewport-display-slot .display-tab {
+  border-radius: 3px;
+}
+.display-tab.is-active {
+  background: var(--control-top);
+  color: var(--text-primary);
+}
+.view-toolbar {
+  border-radius: 5px;
+}
+.view-button,
+.history-button {
+  border-radius: 3px;
+}
+.cad-statusbar {
+  overflow: visible;
+  height: 36px;
+  padding-right: 0;
+}
+.coordinate-dock {
+  position: relative;
+  flex: 0 0 var(--cad-inspector-width);
+  height: 168px;
+  align-self: flex-end;
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 8px;
+  background: var(--cad-panel);
+  border-left: 1px solid var(--cad-line);
+}
+.coordinate-dock .view-cube {
+  position: relative;
+  inset: auto;
+  display: grid;
+  width: 88px;
+  height: 110px;
+  margin: 0;
+}
+.coordinate-dock .view-cube-canvas {
+  width: 88px;
+  height: 88px;
+}
+.coordinate-dock .status-position {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  text-align: center;
+  font-size: 10px;
+}
+.snap-settings-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 11px;
+  cursor: pointer;
+}
+.snap-settings-button .icon {
+  width: 16px;
+  height: 16px;
+}
+.settings-dialog {
+  width: min(420px, calc(100vw - 24px));
+  max-height: calc(100svh - 32px);
+  padding: 0;
+  border: 1px solid var(--cad-line);
+  border-radius: 7px;
+  color: var(--text-primary);
+  background: var(--surface);
+}
+.settings-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+.settings-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--cad-line);
+  background: var(--cad-panel-deep);
+}
+.settings-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 550;
+}
+.settings-content {
+  padding: 16px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.settings-content h3 {
+  margin: 0 0 7px;
+  font-size: 12px;
+}
+.settings-content p {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.settings-content .status-space-slot,
+.settings-content .status-snap-slot,
+.settings-content .status-snap-modes {
+  display: flex;
+  height: auto;
+  padding: 0;
+  margin: 12px 0;
+  border: 0;
+}
+.settings-content .gizmo-space-segment {
+  width: 100%;
+  gap: 3px;
+}
+.settings-content .gizmo-option {
+  min-height: 32px;
+  gap: 7px;
+}
+.settings-content .gizmo-snap-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  width: 100%;
+  gap: 10px;
+}
+.settings-content .gizmo-snap-control {
+  justify-content: space-between;
+  height: 36px;
+}
+.settings-content .gizmo-snap-value {
+  width: 90px;
+  height: 30px;
+}
+.settings-content .status-snap-modes {
+  flex-wrap: wrap;
+  gap: 5px;
+  overflow: visible;
+  white-space: normal;
+}
+.settings-content .status-snap-modes > span {
+  width: 100%;
+  padding: 0 0 5px;
+}
+.settings-content .status-snap-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--cad-line);
+  border-radius: 4px;
+  padding: 7px 9px;
+  font-size: 11px;
+  text-transform: none;
+  background: var(--surface-muted);
+}
+.settings-content .status-snap-button.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft-strong);
+}
+.settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--cad-line);
+  font-size: 10px;
+}
+.settings-footer button {
+  border-radius: 4px;
+  padding: 7px 20px;
+  background: var(--action-background);
+  color: white;
+  cursor: pointer;
+}
+@media (max-width: 1180px) {
+  :root {
+    --cad-left-width: 0px;
+    --cad-inspector-width: 290px;
+  }
+  .left-rail {
+    display: none;
+  }
+  .scene-toggle {
+    display: inline-flex;
+  }
+  .left-rail.scene-open {
+    display: grid;
+    z-index: 36;
+    width: 224px;
+  }
+  .left-rail.scene-open .browser-panel {
+    display: flex;
+  }
+  .status-help-slot {
+    display: none;
+  }
+  .command-strip .rail-button,
+  .command-strip .gizmo-option {
+    padding: 0 8px;
+  }
+}
+@media (max-width: 700px) {
+  :root {
+    --cad-inspector-width: 188px;
+  }
+  .topbar {
+    height: 42px;
+  }
+  .brand {
+    min-width: 0;
+    padding: 0 8px;
+  }
+  .header-actions {
+    gap: 4px;
+  }
+  .theme-toggle,
+  .action-button {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+  }
+  .command-strip .tool-panel {
+    padding: 5px;
+  }
+  .command-strip .rail-button,
+  .command-strip .gizmo-option {
+    font-size: 10px;
+  }
+  .left-rail.scene-open {
+    bottom: 36px;
+    height: auto;
+  }
+  .right-rail,
+  .right-rail.has-active-workbench {
+    top: auto;
+    left: auto;
+    right: 0;
+    bottom: 148px;
+    width: min(304px, 100%);
+    height: min(290px, 38svh);
+  }
+  .right-rail.has-active-workbench {
+    height: min(400px, 48svh);
+  }
+  .right-rail .transform-card {
+    max-height: 100%;
+  }
+  .viewport-display-slot {
+    left: 8px;
+    top: 102px;
+  }
+  .view-toolbar {
+    bottom: auto;
+    top: 144px;
+    left: 8px;
+    right: auto;
+    margin: 0;
+  }
+  .coordinate-dock {
+    height: 148px;
+  }
+  .coordinate-dock .view-cube {
+    top: auto;
+    right: auto;
+    bottom: auto;
+  }
+  .coordinate-dock .status-position {
+    font-size: 9px;
+  }
+  .cad-statusbar {
+    padding-left: 4px;
+  }
+  .model-status {
+    top: 192px;
+    left: 8px;
+    max-width: calc(100% - 24px);
+  }
+  .toast {
+    top: 192px;
+    bottom: auto;
+  }
+  .drop-overlay {
+    inset: 96px 8px 44px;
+  }
+}
+
+/* Match command order to the positioning workflow. */
+.command-strip [data-section="rotation"] {
+  order: 2;
+}
+.command-strip #layFlatButton {
+  order: 3;
+}
+.command-strip [data-section="level"] {
+  order: 4;
+}
+.command-strip #dropToBedButton {
+  order: 5;
+}
+.command-strip #planeButton {
+  order: 6;
+}
+.command-strip #inspectButton {
+  order: 7;
+}
+.coordinate-dock .view-cube[hidden] {
+  display: none;
+}
+
+.right-rail.has-active-workbench .transform-card {
+  display: none;
+}
+.orientation-target-buttons button,
+.inspect-axis-buttons button {
+  justify-items: center;
+}
+.level-mode-button {
+  grid-template-columns: 20px 1fr;
+  column-gap: 7px;
+}
+.level-mode-button .choice-icon {
+  grid-row: span 2;
+  align-self: center;
+}
+@media (max-width: 700px) {
+  .theme-toggle {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 700px) {
+  .right-rail,
+  .right-rail.has-active-workbench {
+    max-height: calc(100svh - 240px);
+  }
+}

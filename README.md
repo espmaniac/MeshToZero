@@ -108,3 +108,12 @@ Current model transformations are baked into exported vertex coordinates.
 - Uses pinned Three.js ES modules from jsDelivr
 - Runs entirely in the browser
 - Published as a static GitHub Pages application
+
+## Workspace controls
+
+- The top command strip groups model transforms, alignment, and construction tools. Scroll the strip horizontally on narrow screens.
+- Scene objects, reference planes, and edit history stay in the left panel. Use the Scene button to open this panel on smaller screens.
+- Construction methods, axis targets, coordinate spaces, and geometry snaps pair icons with text labels.
+- Workspace settings contains coordinate space, grid and angle increments, and geometry snapping. The status bar shows whether snapping is active. Settings apply immediately for the current session.
+- The top reference grid is shown initially; enable Front and Right in the Scene panel as needed.
+- The viewport fills the window behind the interface. ViewCube is centered above the coordinate readout at the bottom right.
