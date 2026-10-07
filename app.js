@@ -100,8 +100,8 @@ const state = {
   modelCenterVisible: true,
   originPlanes: {
     top: true,
-    front: true,
-    right: true,
+    front: false,
+    right: false,
   },
   scaleLinked: true,
   transformGizmo: {
@@ -5220,7 +5220,7 @@ function applyTheme(theme, persist = true) {
   const nextTheme = theme === "dark" ? "light" : "dark";
   themeToggle.setAttribute("aria-label", "Switch to " + nextTheme + " theme");
   document.querySelector('meta[name="theme-color"]').content =
-    theme === "dark" ? "#484848" : "#b3b3b3";
+    getComputedStyle(document.documentElement).getPropertyValue("--toolbar-color").trim();
   if (persist) localStorage.setItem("mesh-to-zero-theme", theme);
   viewport?.updateTheme();
 }
@@ -5250,6 +5250,7 @@ function mountCadWorkspacePanels() {
     if (element && target) target.append(element);
   };
 
+  moveTarget("#toolPanel", "#commandStrip");
   moveTarget(".origin-plane-section", "#browserOriginSlot");
   moveTarget(".created-section", "#browserPlaneSlot");
   moveTarget("#historyPanel", "#browserHistorySlot");
@@ -5270,6 +5271,18 @@ function mountCadWorkspacePanels() {
 }
 
 mountCadWorkspacePanels();
+
+const settingsDialog = document.querySelector("#settingsDialog");
+for (const button of document.querySelectorAll("#settingsButton, [data-open-settings]")) {
+  button.addEventListener("click", () => settingsDialog.showModal());
+}
+for (const button of settingsDialog.querySelectorAll("[data-close-settings]")) {
+  button.addEventListener("click", () => settingsDialog.close());
+}
+document.querySelector("#sceneToggle").addEventListener("click", (event) => {
+  const isOpen = leftRail.classList.toggle("scene-open");
+  event.currentTarget.setAttribute("aria-expanded", String(isOpen));
+});
 
 const sectionButtons = [...document.querySelectorAll("[data-section]")];
 sectionButtons.forEach((button) => {
@@ -7151,6 +7164,9 @@ function updateTransformGizmoUi() {
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   }
+  const snappingEnabled = state.transformGizmo.gridSnap || state.transformGizmo.angleSnap ||
+    Object.values(state.transformGizmo.objectSnap).some(Boolean);
+  document.querySelector("#snapSummary").textContent = snappingEnabled ? "Snapping on" : "Snapping off";
   updateSnapAlignModeHint();
 }
 
@@ -7186,6 +7202,7 @@ gridSnapEnabledInput.addEventListener("change", () => {
 
 angleSnapEnabledInput.addEventListener("change", () => {
   state.transformGizmo.angleSnap = angleSnapEnabledInput.checked;
+  updateTransformGizmoUi();
   applyTransformGizmoSettings();
 });
 
@@ -7575,6 +7592,7 @@ document.querySelector(".brand").addEventListener("click", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
+  if (settingsDialog.open) return;
   const shortcutKey = event.key.toLowerCase();
   const hasHistoryModifier = (event.ctrlKey || event.metaKey) && !event.altKey;
   if (hasHistoryModifier && !event.shiftKey && shortcutKey === "o") {
