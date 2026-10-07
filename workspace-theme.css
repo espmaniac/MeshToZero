@@ -5,62 +5,35 @@
   --cad-browser-width: 224px;
   --cad-left-width: 224px;
   --cad-inspector-width: 304px;
-  --toolbar-color: #acacac;
-  --cad-chrome: #b4b4b4;
-  --cad-panel: #d0d0d0;
-  --cad-panel-raised: #dddddd;
-  --cad-panel-deep: #bfbfbf;
-  --cad-line: #929292;
-  --cad-line-soft: #b1b1b1;
-  --cad-accent: #3676bd;
-  --canvas-background: #a3a3a3;
+  --page-background: #646463;
+  --workspace-background: #646463;
+  --toolbar-color: #7C7C7C;
+  --cad-chrome: #6F6F6E;
+  --cad-panel: #5F5E5E;
+  --cad-panel-raised: #646463;
+  --cad-panel-deep: #4E4D4D;
+  --cad-line: #383838;
+  --cad-line-soft: #4E4D4D;
+  --cad-accent: #3285E5;
+  --canvas-background: #616060;
   --surface: var(--cad-panel);
   --surface-solid: var(--cad-panel-raised);
   --surface-muted: var(--cad-panel-deep);
-  --surface-hover: #c0c0c0;
-  --text-primary: #242424;
-  --text-secondary: #444444;
-  --text-tertiary: #555555;
-  --accent: #3676bd;
-  --accent-hover: #2864a5;
-  --accent-soft: #b3c5da;
-  --accent-soft-strong: #7099c8;
-  --accent-strong: #204e82;
-  --accent-contrast: #ffffff;
-  --focus-ring: #387fce;
-  --control-face: #d2d2d2;
-  --input-background: #eeeeee;
-  --action-background: #3576bf;
-  --action-hover: #2d67a7;
-}
-:root[data-theme="dark"] {
-  --toolbar-color: #999999;
-  --cad-chrome: #484848;
-  --cad-panel: #565656;
-  --cad-panel-raised: #626262;
-  --cad-panel-deep: #484848;
-  --cad-line: #353535;
-  --cad-line-soft: #484848;
-  --cad-accent: #75aff0;
-  --canvas-background: #333333;
-  --surface: var(--cad-panel);
-  --surface-solid: var(--cad-panel-raised);
-  --surface-muted: var(--cad-panel-deep);
-  --surface-hover: #666666;
-  --text-primary: #f4f4f4;
-  --text-secondary: #e0e0e0;
-  --text-tertiary: #cdcdcd;
-  --accent: #75aff0;
-  --accent-hover: #8dbdf3;
-  --accent-soft: #425f80;
-  --accent-soft-strong: #6e9aca;
-  --accent-strong: #ffffff;
+  --surface-hover: #6F6F6E;
+  --text-primary: #DDDDDD;
+  --text-secondary: #CCCCCC;
+  --text-tertiary: #B7B7B7;
+  --accent: #3285E5;
+  --accent-hover: #559CEB;
+  --accent-soft: #526B84;
+  --accent-soft-strong: #3285E5;
+  --accent-strong: #FFFFFF;
   --accent-contrast: #162b42;
-  --focus-ring: #89beff;
-  --control-face: #5c5c5c;
-  --input-background: #3d3d3d;
-  --action-background: #377ac9;
-  --action-hover: #2c68ae;
+  --focus-ring: #3285E5;
+  --control-face: #646463;
+  --input-background: #383838;
+  --action-background: #276BB8;
+  --action-hover: #225D9F;
 }
 #viewportCanvas {
   inset: 0;
@@ -70,20 +43,20 @@
 .topbar {
   height: 42px;
   background: var(--toolbar-color);
-  color: #232323;
+  color: #111111;
   border-bottom-color: #333333;
 }
 .brand {
   width: auto;
   min-width: 170px;
-  color: #232323;
+  color: #111111;
   font-size: 16px;
 }
-:root[data-theme="dark"] .brand img {
+:root .brand img {
   filter: none;
 }
 .cad-menu summary {
-  color: #303030;
+  color: #111111;
   font-size: 12px;
   padding: 0 12px;
 }
@@ -101,9 +74,9 @@
 .theme-toggle {
   height: 28px;
   border-radius: 4px;
-  background: #aeaeae;
-  border-color: #7d7d7d;
-  color: #252525;
+  background: #A3A3A3;
+  border-color: #4E4D4D;
+  color: #191919;
 }
 .action-button {
   min-width: 92px;
@@ -117,7 +90,7 @@
 }
 .action-button:not(:disabled):hover,
 .theme-toggle:hover {
-  background: #c5c5c5;
+  background: #B2B2B2;
   color: #222222;
 }
 .scene-toggle {

@@ -1497,7 +1497,7 @@ class ViewCubeNavigator {
   }
 
   updateTheme() {
-    const darkTheme = document.documentElement.dataset.theme === "dark";
+    const darkTheme = document.documentElement.dataset.theme === "gray";
     const rootStyle = getComputedStyle(document.documentElement);
     const value = (name) => rootStyle.getPropertyValue(name).trim();
     const faceColors = darkTheme
@@ -2991,7 +2991,7 @@ class ThreeViewport {
     if (!this.originPlaneGrids || !this.alignmentPlanePicking) return;
     const rootStyle = getComputedStyle(document.documentElement);
     const value = (name) => rootStyle.getPropertyValue(name).trim();
-    const darkTheme = document.documentElement.dataset.theme === "dark";
+    const darkTheme = document.documentElement.dataset.theme === "gray";
     const pickingEnabled = this.alignmentPlanePicking.enabled;
     const hovered = pickingEnabled ? this.alignmentPlanePicking.hovered : null;
 
@@ -4817,7 +4817,7 @@ class ThreeViewport {
   updateTheme() {
     const rootStyle = getComputedStyle(document.documentElement);
     const value = (name) => rootStyle.getPropertyValue(name).trim();
-    const darkTheme = document.documentElement.dataset.theme === "dark";
+    const darkTheme = document.documentElement.dataset.theme === "gray";
     const background = value("--canvas-background");
 
     this.scene.background = new THREE.Color().setStyle(background);

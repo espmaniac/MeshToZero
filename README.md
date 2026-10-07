@@ -72,7 +72,7 @@ The application is built with HTML, CSS, JavaScript, and Three.js. It has no fra
 
 - Model-centered orbit, unrestricted camera rotation, pan, zoom, and fit
 - Mesh, edge, vertex, and point-cloud display modes
-- Light-gray and dark-gray interface themes
+- Fixed neutral-gray interface palette
 - Responsive desktop and mobile layout
 - 100-step undo and redo
 - Clickable Photoshop-style Transform History
