@@ -100,8 +100,8 @@ const state = {
   modelCenterVisible: true,
   originPlanes: {
     top: true,
-    front: false,
-    right: false,
+    front: true,
+    right: true,
   },
   scaleLinked: true,
   transformGizmo: {
@@ -5256,7 +5256,7 @@ function mountCadWorkspacePanels() {
   );
   moveTarget(".gizmo-space-segment", "#statusSpaceSlot");
   moveTarget(".gizmo-snap-grid", "#statusSnapSlot");
-  document.querySelector(".shortcut-hint").hidden = true;
+  moveTarget(".shortcut-hint", "#statusHelpSlot");
 
   for (const workbench of document.querySelectorAll(
     "#planeWorkbench, #layFlatWorkbench, #inspectWorkbench, #rotationWorkbench, #levelWorkbench",
@@ -5266,33 +5266,6 @@ function mountCadWorkspacePanels() {
 }
 
 mountCadWorkspacePanels();
-
-for (const button of document.querySelectorAll("[data-open-dialog]")) {
-  button.addEventListener("click", () => {
-    const dialog = document.getElementById(button.dataset.openDialog);
-    if (dialog instanceof HTMLDialogElement && !dialog.open) dialog.showModal();
-  });
-}
-
-for (const dialog of document.querySelectorAll(".workspace-dialog")) {
-  dialog.querySelectorAll("[data-close-dialog]").forEach((button) => {
-    button.addEventListener("click", () => dialog.close());
-  });
-  let backdropPress = false;
-  const isOutsideDialog = (event) => {
-    const rect = dialog.getBoundingClientRect();
-    return event.target === dialog &&
-      (event.clientX < rect.left || event.clientX > rect.right ||
-       event.clientY < rect.top || event.clientY > rect.bottom);
-  };
-  dialog.addEventListener("pointerdown", (event) => {
-    backdropPress = isOutsideDialog(event);
-  });
-  dialog.addEventListener("pointerup", (event) => {
-    if (backdropPress && isOutsideDialog(event)) dialog.close();
-    backdropPress = false;
-  });
-}
 
 const sectionButtons = [...document.querySelectorAll("[data-section]")];
 sectionButtons.forEach((button) => {
@@ -7134,10 +7107,6 @@ function writeTransformInputs() {
     const value = group === "rotation" ? THREE.MathUtils.radToDeg(rawValue) : rawValue;
     input.value = value.toFixed(group === "rotation" ? 2 : 3);
   }
-  updatePositionReadout();
-}
-
-function updatePositionReadout() {
   statusPosition.textContent =
     "X " +
     state.model.position.x.toFixed(3) +
@@ -7178,12 +7147,6 @@ function updateTransformGizmoUi() {
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   }
-  const activeSnapCount = Object.values(state.transformGizmo.objectSnap).filter(Boolean).length +
-    Number(state.transformGizmo.gridSnap) + Number(state.transformGizmo.angleSnap);
-  document.querySelector("#snapSummary").textContent = activeSnapCount
-    ? "Snapping on · " + activeSnapCount
-    : "Snapping off";
-  document.querySelector(".snap-settings-link").classList.toggle("is-active", activeSnapCount > 0);
   updateSnapAlignModeHint();
 }
 
@@ -7197,11 +7160,6 @@ function updateSnapStep(input, stateKey, minimum, maximum = Number.POSITIVE_INFI
 
 transformGizmoModeButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    if (!planeWorkbench.hidden) setPlaneWorkbenchOpen(false);
-    if (!layFlatWorkbench.hidden) closeLayFlatWorkbench();
-    if (!inspectWorkbench.hidden) closeInspectWorkbench();
-    closeAlignmentWorkbenches(true);
-    clearActiveToolSection();
     state.transformGizmo.mode = button.dataset.gizmoMode;
     setPressedState(transformGizmoModeButtons, button);
     applyTransformGizmoSettings();
@@ -7224,7 +7182,6 @@ gridSnapEnabledInput.addEventListener("change", () => {
 
 angleSnapEnabledInput.addEventListener("change", () => {
   state.transformGizmo.angleSnap = angleSnapEnabledInput.checked;
-  updateTransformGizmoUi();
   applyTransformGizmoSettings();
 });
 
@@ -7350,7 +7307,6 @@ transformInputs.forEach((input) => {
     }
 
     viewport?.applyTransform();
-    updatePositionReadout();
   });
 
   input.addEventListener("change", commitPendingTransformEdit);
@@ -7615,8 +7571,6 @@ document.querySelector(".brand").addEventListener("click", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
-  // Keep scene shortcuts and tool cancellation out of modal interactions.
-  if (document.querySelector(".workspace-dialog[open]")) return;
   const shortcutKey = event.key.toLowerCase();
   const hasHistoryModifier = (event.ctrlKey || event.metaKey) && !event.altKey;
   if (hasHistoryModifier && !event.shiftKey && shortcutKey === "o") {
