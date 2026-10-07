@@ -3037,16 +3037,12 @@ class ThreeViewport {
       grid.minor.material.color.setStyle(
         isSelected || isHovered
           ? value("--accent")
-          : darkTheme
-            ? "#686868"
-            : "#8f8e8a",
+          : value("--viewport-grid-minor"),
       );
       grid.major.material.color.setStyle(
         isSelected || isHovered
           ? value("--accent")
-          : darkTheme
-            ? "#858585"
-            : "#72716d",
+          : value("--viewport-grid-major"),
       );
       grid.minor.material.opacity = Math.min(
         1,
@@ -5220,7 +5216,7 @@ function applyTheme(theme, persist = true) {
   const nextTheme = theme === "dark" ? "light" : "dark";
   themeToggle.setAttribute("aria-label", "Switch to " + nextTheme + " theme");
   document.querySelector('meta[name="theme-color"]').content =
-    theme === "dark" ? "#484848" : "#b3b3b3";
+    getComputedStyle(document.documentElement).getPropertyValue("--cad-chrome").trim();
   if (persist) localStorage.setItem("mesh-to-zero-theme", theme);
   viewport?.updateTheme();
 }

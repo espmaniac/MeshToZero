@@ -1,63 +1,93 @@
 :root {
   color-scheme: light;
-  --page-background: #b3b3b3;
-  --workspace-background: #b3b3b3;
-  --canvas-background: #b3b3b3;
-  --surface: rgba(238, 238, 238, 0.9);
-  --surface-solid: #eeeeee;
-  --surface-muted: #dedede;
-  --surface-hover: #d0d0d0;
-  --text-primary: #242424;
-  --text-secondary: #626262;
-  --text-tertiary: #888888;
-  --border: rgba(36, 36, 36, 0.12);
-  --border-strong: rgba(36, 36, 36, 0.2);
-  --accent: #5a5a5a;
-  --accent-hover: #484848;
-  --accent-soft: #dedede;
-  --accent-soft-strong: rgba(72, 72, 72, 0.28);
-  --accent-strong: #383838;
+  --page-background: #dfe0e2;
+  --workspace-background: #c6c8cc;
+  --canvas-background: #c6c8cc;
+  --cad-chrome: #dfe0e2;
+  --cad-chrome-top: #e8e9eb;
+  --cad-panel: #edeef0;
+  --cad-panel-raised: #f8f9fa;
+  --cad-panel-deep: #dfe1e4;
+  --cad-line: #b6b9bf;
+  --cad-line-soft: #d0d3d8;
+  --cad-accent: #2869b0;
+  --surface: var(--cad-panel);
+  --surface-solid: var(--cad-panel-raised);
+  --surface-muted: var(--cad-panel-deep);
+  --surface-hover: #d9dde3;
+  --text-primary: #25272b;
+  --text-secondary: #51565e;
+  --text-tertiary: #646a74;
+  --border: var(--cad-line-soft);
+  --border-strong: var(--cad-line);
+  --accent: var(--cad-accent);
+  --accent-hover: #205b9d;
+  --accent-soft: #d4e2f3;
+  --accent-soft-strong: #a7c3e6;
+  --accent-strong: #235d9b;
   --accent-contrast: #ffffff;
-  --danger: #b13e4d;
-  --grid-minor: rgba(48, 48, 48, 0.09);
-  --grid-major: rgba(48, 48, 48, 0.17);
-  --cube-light: #d8d8d8;
-  --cube-mid: #b4b4b4;
-  --cube-dark: #8c8c8c;
-  --cube-edge: rgba(48, 48, 48, 0.62);
-  --focus-ring: rgba(72, 72, 72, 0.34);
-  --drop-overlay: rgba(179, 179, 179, 0.92);
+  --action-fill: #306bad;
+  --action-hover: #255a96;
+  --action-text: #ffffff;
+  --control-background: #f8f9fa;
+  --toggle-thumb: #ffffff;
+  --danger: #b83d49;
+  --grid-minor: rgba(65, 70, 80, 0.09);
+  --grid-major: rgba(65, 70, 80, 0.17);
+  --viewport-grid-minor: #969ba4;
+  --viewport-grid-major: #79818c;
+  --cube-light: #e3e6eb;
+  --cube-mid: #bcc3cd;
+  --cube-dark: #939da9;
+  --cube-edge: rgba(48, 55, 65, 0.62);
+  --focus-ring: rgba(40, 105, 176, 0.5);
+  --drop-overlay: rgba(198, 200, 204, 0.94);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page-background: #484848;
-  --workspace-background: #484848;
-  --canvas-background: #484848;
-  --surface: rgba(78, 78, 78, 0.92);
-  --surface-solid: #565656;
-  --surface-muted: #606060;
-  --surface-hover: #696969;
-  --text-primary: #f2f2f2;
-  --text-secondary: #c6c6c6;
-  --text-tertiary: #9d9d9d;
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.2);
-  --accent: #d4d4d4;
-  --accent-hover: #eeeeee;
-  --accent-soft: #5d5d5d;
-  --accent-soft-strong: rgba(212, 212, 212, 0.34);
-  --accent-strong: #f2f2f2;
-  --accent-contrast: #2b2b2b;
-  --danger: #ff7a8d;
-  --grid-minor: rgba(255, 255, 255, 0.06);
-  --grid-major: rgba(255, 255, 255, 0.12);
-  --cube-light: #dedede;
-  --cube-mid: #bcbcbc;
-  --cube-dark: #929292;
-  --cube-edge: rgba(255, 255, 255, 0.4);
-  --focus-ring: rgba(212, 212, 212, 0.38);
-  --drop-overlay: rgba(72, 72, 72, 0.9);
+  --page-background: #404145;
+  --workspace-background: #242528;
+  --canvas-background: #242528;
+  --cad-chrome: #404145;
+  --cad-chrome-top: #4b4c50;
+  --cad-panel: #343539;
+  --cad-panel-raised: #45474c;
+  --cad-panel-deep: #2c2d31;
+  --cad-line: #585b62;
+  --cad-line-soft: #46484e;
+  --cad-accent: #8bb8f2;
+  --surface: var(--cad-panel);
+  --surface-solid: var(--cad-panel-raised);
+  --surface-muted: var(--cad-panel-deep);
+  --surface-hover: #4a4d54;
+  --text-primary: #f1f2f4;
+  --text-secondary: #c4c7cd;
+  --text-tertiary: #a5a9b2;
+  --border: var(--cad-line-soft);
+  --border-strong: var(--cad-line);
+  --accent: var(--cad-accent);
+  --accent-hover: #a4c9fa;
+  --accent-soft: #354b67;
+  --accent-soft-strong: #53759e;
+  --accent-strong: #b2d2fb;
+  --accent-contrast: #172331;
+  --action-fill: #356daf;
+  --action-hover: #3b74b6;
+  --action-text: #ffffff;
+  --control-background: #27282c;
+  --toggle-thumb: #f1f2f4;
+  --danger: #ff929b;
+  --grid-minor: rgba(210, 219, 231, 0.06);
+  --grid-major: rgba(210, 219, 231, 0.12);
+  --viewport-grid-minor: #4a4d54;
+  --viewport-grid-major: #656a74;
+  --cube-light: #e0e5ec;
+  --cube-mid: #b9c2ce;
+  --cube-dark: #909ba9;
+  --cube-edge: rgba(225, 231, 239, 0.4);
+  --focus-ring: rgba(139, 184, 242, 0.65);
+  --drop-overlay: rgba(36, 37, 40, 0.94);
 }
 
 * {
@@ -1640,7 +1670,7 @@ input:focus-visible {
   width: 100%;
   min-width: 0;
   height: 36px;
-  background: var(--surface-solid);
+  background: var(--control-background);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
   color: var(--text-primary);
@@ -2473,7 +2503,7 @@ input:focus-visible {
   align-items: center;
   gap: 6px;
   padding: 0 9px;
-  background: var(--surface-solid);
+  background: var(--control-background);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
   transition: border-color 140ms ease;
@@ -3183,48 +3213,6 @@ input:focus-visible {
   --cad-browser-width: 272px;
   --cad-left-width: calc(var(--cad-tool-width) + var(--cad-browser-width));
   --cad-inspector-width: 338px;
-  --cad-chrome: #d7d7d7;
-  --cad-panel: #dedede;
-  --cad-panel-raised: #e8e8e8;
-  --cad-panel-deep: #cccccc;
-  --cad-line: rgba(25, 25, 25, 0.24);
-  --cad-line-soft: rgba(25, 25, 25, 0.13);
-  --cad-accent: #087fae;
-  --surface: var(--cad-panel);
-  --surface-solid: var(--cad-panel-raised);
-  --surface-muted: var(--cad-panel-deep);
-  --surface-hover: #c5c5c5;
-  --border: var(--cad-line-soft);
-  --border-strong: var(--cad-line);
-  --accent: var(--cad-accent);
-  --accent-hover: #056d96;
-  --accent-soft: rgba(8, 127, 174, 0.16);
-  --accent-soft-strong: rgba(8, 127, 174, 0.38);
-  --accent-strong: #035f82;
-  --focus-ring: rgba(8, 127, 174, 0.4);
-}
-
-:root[data-theme="dark"] {
-  --cad-chrome: #202020;
-  --cad-panel: #292929;
-  --cad-panel-raised: #323232;
-  --cad-panel-deep: #242424;
-  --cad-line: rgba(255, 255, 255, 0.2);
-  --cad-line-soft: rgba(255, 255, 255, 0.1);
-  --cad-accent: #2aaee6;
-  --surface: var(--cad-panel);
-  --surface-solid: var(--cad-panel-raised);
-  --surface-muted: var(--cad-panel-deep);
-  --surface-hover: #383838;
-  --border: var(--cad-line-soft);
-  --border-strong: var(--cad-line);
-  --accent: var(--cad-accent);
-  --accent-hover: #42bdf1;
-  --accent-soft: rgba(42, 174, 230, 0.16);
-  --accent-soft-strong: rgba(42, 174, 230, 0.42);
-  --accent-strong: #67c9f2;
-  --accent-contrast: #07151b;
-  --focus-ring: rgba(42, 174, 230, 0.42);
 }
 
 *,
@@ -3432,8 +3420,7 @@ body {
 }
 
 .action-button:not(:disabled):hover,
-.theme-toggle:hover,
-.primary-button:hover {
+.theme-toggle:hover {
   border-color: var(--accent);
   background: var(--surface-hover);
   transform: none;
@@ -4521,4 +4508,41 @@ body {
   .status-position {
     padding-left: 6px;
   }
+}
+
+/* Color hierarchy for the workspace chrome and interactive states. */
+.topbar,
+.cad-statusbar {
+  background: linear-gradient(var(--cad-chrome-top), var(--cad-chrome));
+}
+
+.browser-header,
+.browser-group > h3 {
+  background: var(--cad-panel-deep);
+}
+
+.rail-button.is-active,
+.tool-gizmo-slot .gizmo-option.is-active,
+.display-tab.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.primary-button {
+  background: var(--action-fill);
+  color: var(--action-text);
+}
+
+.primary-button:hover {
+  background: var(--action-hover);
+  transform: none;
+}
+
+.toggle-track span {
+  background: var(--toggle-thumb);
+}
+
+::selection {
+  background: var(--accent-soft-strong);
+  color: var(--text-primary);
 }
