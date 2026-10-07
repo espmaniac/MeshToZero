@@ -733,9 +733,9 @@
 
   --page-background: #616161;
   --workspace-background: #616161;
-  --canvas-background: #616161;
+  --canvas-background: #616060;
 
-  --toolbar-color: #a5a5a5;
+  --toolbar-color: #7c7c7c;
   --cad-chrome: #484848;
   --cad-panel: #616161;
   --cad-panel-raised: #858585;
@@ -786,7 +786,7 @@ body {
 
 .workspace,
 #viewportCanvas {
-  background: #616161;
+  background: var(--canvas-background);
   transition: none;
 }
 
@@ -794,16 +794,37 @@ body {
   border-color: #434343;
 }
 
-/* Light Logic-like application bar. */
+/* Compact application bar above the full-page viewport. */
 .topbar {
-  background: #a5a5a5;
-  color: #242424;
-  border-bottom: 1px solid #616161;
+  background: #7c7c7c;
+  color: #171717;
+  border-bottom: 1px solid #646463;
 }
 
 .brand,
 .cad-menu summary {
-  color: #242424;
+  color: #171717;
+}
+
+.topbar .brand {
+  border-right: 0;
+  font-weight: 600;
+}
+
+.topbar .cad-menu summary {
+  height: 28px;
+  margin: 7px 2px;
+  border-radius: 5px;
+}
+
+.topbar .cad-menu summary:hover,
+.topbar .cad-menu[open] summary {
+  background: #929292;
+}
+
+.topbar .header-actions {
+  gap: 8px;
+  padding-right: 10px;
 }
 
 .brand img {
@@ -812,9 +833,10 @@ body {
 
 .header-actions .action-button,
 .header-actions .theme-toggle {
-  background: #858585;
-  border-color: #616161;
-  color: #242424;
+  background: #929292;
+  border-color: #646463;
+  border-radius: 6px;
+  color: #171717;
   box-shadow: none;
   background-image: none;
 }
@@ -849,33 +871,82 @@ body {
   background: #616161;
 }
 
-/* Logic-like dark command strip with flat selection states. */
+/* Grouped commands with subtle translucency over the viewport. */
 .command-strip {
-  background: #484848;
-  border-bottom-color: #313131;
+  background: #6f6f6e;
+  border-bottom-color: #545454;
 }
 
 .command-strip .tool-panel {
-  background: #484848;
+  background: transparent;
+  gap: 4px;
+}
+
+.command-strip .tool-gizmo-slot {
+  flex: 0 0 auto;
+}
+
+.command-strip [data-section="rotation"],
+.command-strip #planeButton {
+  position: relative;
+  margin-left: 16px;
+}
+
+.command-strip [data-section="rotation"]::before,
+.command-strip #planeButton::before {
+  content: "";
+  position: absolute;
+  left: -11px;
+  top: 7px;
+  bottom: 7px;
+  width: 1px;
+  background: #545454;
+  pointer-events: none;
+}
+
+@supports (backdrop-filter: blur(6px)) {
+  .topbar {
+    background: rgb(124 124 124 / 96%);
+    backdrop-filter: blur(6px);
+  }
+
+  .command-strip {
+    background: rgb(111 111 110 / 94%);
+    backdrop-filter: blur(6px);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .topbar {
+    background: #7c7c7c;
+    backdrop-filter: none;
+  }
+
+  .command-strip {
+    background: #6f6f6e;
+    backdrop-filter: none;
+  }
 }
 
 .command-strip .rail-button,
 .command-strip .gizmo-option {
-  color: #eeeeee;
+  color: #f5f5f5;
+  background: transparent;
   border: 1px solid transparent;
+  border-radius: 6px;
   box-shadow: none;
   background-image: none;
 }
 
 .command-strip .rail-button:hover,
 .command-strip .gizmo-option:hover {
-  background: #616161;
+  background: #646463;
   color: #ffffff;
 }
 
 .command-strip .rail-button.is-active,
 .command-strip .gizmo-option.is-active {
-  background: #2f80d9;
+  background: #3285e5;
   border-color: #246cad;
   color: #ffffff;
 }
