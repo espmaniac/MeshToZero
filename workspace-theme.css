@@ -490,6 +490,26 @@
   width: 100%;
   gap: 10px;
 }
+.settings-content .gizmo-toggle-track {
+  width: 26px;
+  height: 15px;
+  border: 0;
+  background: var(--border-strong);
+}
+.settings-content .gizmo-toggle-track > span {
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  background: #d8d8d8;
+}
+.settings-content .gizmo-snap-heading input:checked + .gizmo-toggle-track {
+  background: var(--accent);
+}
+.settings-content .gizmo-snap-heading input:checked + .gizmo-toggle-track > span {
+  background: #d8d8d8;
+  transform: translateX(11px);
+}
 .settings-content .gizmo-snap-control {
   justify-content: space-between;
   height: 36px;
