@@ -386,7 +386,7 @@
   color: var(--text-primary);
 }
 .view-toolbar {
-  border-radius: 5px;
+  border-radius: 32px;
 }
 .view-button,
 .history-button {
