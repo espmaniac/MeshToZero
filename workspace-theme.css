@@ -1203,3 +1203,38 @@ input:checked + .toggle-track,
   display: none !important;
 }
 
+
+/* Match target-plane faces to the viewport axis colors. */
+.orientation-target-buttons [data-orientation-target="x"] {
+  --target-axis-color: #ef4444;
+}
+.orientation-target-buttons [data-orientation-target="y"] {
+  --target-axis-color: #2aad54;
+}
+.orientation-target-buttons [data-orientation-target="z"] {
+  --target-axis-color: #2386ff;
+}
+.orientation-target-buttons button {
+  gap: 5px;
+  border: 2px solid #484848;
+  border-radius: 6px;
+}
+.orientation-target-buttons .choice-icon {
+  width: 30px;
+  height: 30px;
+  color: var(--target-axis-color);
+}
+.orientation-target-buttons button:hover {
+  background: #616161;
+  border-color: var(--target-axis-color);
+}
+.orientation-target-buttons button.is-active {
+  --target-face-opacity: 0.65;
+  background: #646463;
+  border-color: var(--target-axis-color);
+  color: #ffffff;
+}
+.orientation-target-buttons small {
+  color: #dddddd;
+  font-size: 9px;
+}
