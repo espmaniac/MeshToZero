@@ -1205,36 +1205,94 @@ input:checked + .toggle-track,
 
 
 /* Match target-plane faces to the viewport axis colors. */
-.orientation-target-buttons [data-orientation-target="x"] {
+.orientation-target-buttons [data-orientation-target="x"],
+.inspect-axis-buttons [data-inspect-reference-plane="world-yz"] {
   --target-axis-color: #ef4444;
 }
-.orientation-target-buttons [data-orientation-target="y"] {
+.orientation-target-buttons [data-orientation-target="y"],
+.inspect-axis-buttons [data-inspect-reference-plane="world-xz"] {
   --target-axis-color: #2aad54;
 }
-.orientation-target-buttons [data-orientation-target="z"] {
+.orientation-target-buttons [data-orientation-target="z"],
+.inspect-axis-buttons [data-inspect-reference-plane="world-xy"] {
   --target-axis-color: #2386ff;
 }
-.orientation-target-buttons button {
+:is(.orientation-target-buttons, .inspect-axis-buttons) button {
   gap: 5px;
   border: 2px solid #484848;
   border-radius: 6px;
 }
-.orientation-target-buttons .choice-icon {
+:is(.orientation-target-buttons, .inspect-axis-buttons) .choice-icon {
   width: 30px;
   height: 30px;
   color: var(--target-axis-color);
 }
-.orientation-target-buttons button:hover {
+:is(.orientation-target-buttons, .inspect-axis-buttons) button:hover {
   background: #616161;
   border-color: var(--target-axis-color);
 }
-.orientation-target-buttons button.is-active {
+:is(.orientation-target-buttons, .inspect-axis-buttons) button.is-active {
   --target-face-opacity: 0.65;
   background: #646463;
   border-color: var(--target-axis-color);
   color: #ffffff;
 }
-.orientation-target-buttons small {
+:is(.orientation-target-buttons, .inspect-axis-buttons) small {
   color: #dddddd;
   font-size: 9px;
+}
+
+/* Surface selection, reference, and comparison form a single inspection flow. */
+.inspect-workbench .inspect-step-number {
+  background: #707070;
+  border-color: #858585;
+  color: #ffffff;
+}
+.inspect-workbench .inspect-empty {
+  gap: 6px;
+  padding: 12px;
+  border-radius: 6px;
+}
+.inspect-workbench .inspect-empty[data-state="ready"] {
+  background: #545454;
+  border-color: #858585;
+}
+.inspect-repick {
+  border-radius: 6px;
+  width: 100%;
+  margin-top: 6px;
+}
+.inspect-primary-result {
+  gap: 6px;
+  padding: 14px;
+  border-radius: 6px;
+}
+.inspect-primary-result strong {
+  font-size: 26px;
+}
+.inspect-primary-result small {
+  color: #dddddd;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.inspect-primary-result .inspect-alignment-label {
+  color: #ffffff;
+  font-size: 12px;
+}
+.inspect-technical-details {
+  border: 1px solid #484848;
+  border-radius: 6px;
+  padding: 10px;
+  background: #545454;
+}
+.inspect-technical-details summary {
+  cursor: pointer;
+  color: #eeeeee;
+  font-size: 11px;
+}
+.inspect-technical-details[open] summary {
+  margin-bottom: 10px;
+}
+.inspect-technical-details .inspect-detail-list {
+  margin-bottom: 0;
 }

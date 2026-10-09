@@ -567,7 +567,7 @@
           <header class="workbench-header">
             <div>
               <p class="eyebrow">Surface deviation</p>
-              <h2 id="inspectWorkbenchTitle">Plane Inspector</h2>
+              <h2 id="inspectWorkbenchTitle"><svg class="icon choice-icon" aria-hidden="true"><use href="#icon-measure"></use></svg>Plane Inspector</h2>
             </div>
             <button class="icon-button" id="closeInspectWorkbench" type="button" aria-label="Close Plane Inspector">
               <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
@@ -575,21 +575,22 @@
           </header>
 
           <div class="workbench-scroll">
-            <p class="alignment-copy">Fit a plane to a model surface, then compare it with the exact MeshToZero plane you choose.</p>
+            <p class="alignment-copy">Measure the angle between a model surface and a reference plane.</p>
 
             <section class="inspect-step" aria-labelledby="inspectSurfaceStepTitle">
               <header class="inspect-step-heading">
                 <span class="inspect-step-number" aria-hidden="true">1</span>
                 <span>
                   <small>Model geometry</small>
-                  <strong id="inspectSurfaceStepTitle">Choose surface</strong>
+                  <strong id="inspectSurfaceStepTitle">Pick a model surface</strong>
                 </span>
               </header>
               <div class="alignment-empty inspect-empty" id="inspectSurfaceEmpty" role="status" aria-live="polite" data-state="waiting">
                 <svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg>
-                <strong id="inspectSurfaceStatus">Click a planar surface</strong>
-                <span id="inspectSurfaceHint">Click away from edges. Meshes and point clouds are supported.</span>
+                <strong id="inspectSurfaceStatus">Click a flat area on the model</strong>
+                <span id="inspectSurfaceHint">Pick near the middle of a face, away from edges.</span>
               </div>
+              <button class="alignment-cancel-button inspect-repick" id="clearInspection" type="button" disabled>Pick another surface</button>
             </section>
 
             <section class="inspect-reference-section" aria-labelledby="inspectReferenceTitle">
@@ -597,54 +598,56 @@
                 <span class="inspect-step-number" aria-hidden="true">2</span>
                 <span>
                   <small>Comparison target</small>
-                  <strong id="inspectReferenceTitle">Choose reference plane</strong>
+                  <strong id="inspectReferenceTitle">Compare with a plane</strong>
                 </span>
               </header>
 
               <div class="inspect-axis-buttons" role="group" aria-label="MeshToZero world planes">
-                <button type="button" data-inspect-reference-plane="world-yz" aria-pressed="false"><svg class="icon choice-icon" aria-hidden="true"><use href="#choice-axis-x"></use></svg>
-                  <strong>X</strong><small>Right · YZ</small>
+                <button type="button" data-inspect-reference-plane="world-yz" aria-pressed="false"><svg class="icon choice-icon" aria-hidden="true"><use href="#target-plane-right"></use></svg>
+                  <strong>Right</strong><small>YZ · X axis</small>
                 </button>
-                <button type="button" data-inspect-reference-plane="world-xz" aria-pressed="false"><svg class="icon choice-icon" aria-hidden="true"><use href="#choice-axis-y"></use></svg>
-                  <strong>Y</strong><small>Front · XZ</small>
+                <button type="button" data-inspect-reference-plane="world-xz" aria-pressed="false"><svg class="icon choice-icon" aria-hidden="true"><use href="#target-plane-front"></use></svg>
+                  <strong>Front</strong><small>XZ · Y axis</small>
                 </button>
-                <button class="is-active" type="button" data-inspect-reference-plane="world-xy" aria-pressed="true"><svg class="icon choice-icon" aria-hidden="true"><use href="#choice-axis-z"></use></svg>
-                  <strong>Z</strong><small>Top · XY</small>
+                <button class="is-active" type="button" data-inspect-reference-plane="world-xy" aria-pressed="true"><svg class="icon choice-icon" aria-hidden="true"><use href="#target-plane-top"></use></svg>
+                  <strong>Top</strong><small>XY · Z axis</small>
                 </button>
               </div>
 
               <label class="workbench-field inspect-reference-field">
-                <span>World or construction plane</span>
+                <span>All reference planes</span>
                 <select id="inspectReferencePlane" aria-describedby="inspectReferenceHint"></select>
               </label>
-              <p class="alignment-hint" id="inspectReferenceHint">After choosing the surface, select here or click any visible origin or construction plane in the viewport.</p>
+              <p class="alignment-hint" id="inspectReferenceHint">Choose a face above or a plane from the list. After picking a surface, you can also click a visible plane in the viewport.</p>
             </section>
 
             <section class="inspect-results" id="inspectSurfaceResults" aria-labelledby="inspectSurfaceResultTitle" hidden>
               <div class="inspect-primary-result">
-                <span id="inspectSurfaceResultTitle">Angular deviation</span>
+                <span id="inspectSurfaceResultTitle">Angle to reference</span>
                 <strong id="inspectComparisonAngle">0.000°</strong>
                 <output id="inspectComparisonPlane">Surface ↔ Z · Top (XY)</output>
+                <output class="inspect-alignment-label" id="inspectAlignmentState">Parallel</output>
+                <small>0° = parallel · 90° = perpendicular</small>
+                <small>Compares orientation, not distance between planes.</small>
               </div>
 
-              <div class="inspect-value-grid" aria-label="Plane comparison details">
-                <div><span>Alignment</span><output id="inspectAlignmentState">Exact</output></div>
-                <div><span>Normal match</span><output id="inspectNormalMatch">100.0000%</output></div>
-                <div><span>Fit samples</span><output id="inspectSampleCount">0</output></div>
-                <div><span>Fit RMS</span><output id="inspectFitRms">0.000 mm</output></div>
-              </div>
+              <details class="inspect-technical-details">
+                <summary>Measurement details</summary>
+                <div class="inspect-value-grid" aria-label="Plane comparison details">
+                  <div><span>Normal similarity</span><output id="inspectNormalMatch">100.0000%</output></div>
+                  <div><span>Sample points</span><output id="inspectSampleCount">0</output></div>
+                  <div><span>Plane fit error (RMS)</span><output id="inspectFitRms">0.000 mm</output></div>
+                </div>
 
-              <dl class="inspect-detail-list">
-                <div><dt>Surface normal · world</dt><dd id="inspectSurfaceNormal">X 0 · Y 0 · Z 1</dd></div>
-                <div><dt>Reference normal · world</dt><dd id="inspectReferenceNormal">X 0 · Y 0 · Z 1</dd></div>
-                <div><dt>Selected surface point</dt><dd id="inspectSurfacePoint">X 0 · Y 0 · Z 0</dd></div>
-                <div><dt>Reference plane origin</dt><dd id="inspectReferenceOrigin">X 0 · Y 0 · Z 0</dd></div>
-              </dl>
+                <p class="alignment-hint">Lower fit error means the sampled points lie closer to the fitted plane.</p>
+                <dl class="inspect-detail-list">
+                  <div><dt>Surface normal · world</dt><dd id="inspectSurfaceNormal">X 0 · Y 0 · Z 1</dd></div>
+                  <div><dt>Reference normal · world</dt><dd id="inspectReferenceNormal">X 0 · Y 0 · Z 1</dd></div>
+                  <div><dt>Selected surface point</dt><dd id="inspectSurfacePoint">X 0 · Y 0 · Z 0</dd></div>
+                  <div><dt>Reference plane origin</dt><dd id="inspectReferenceOrigin">X 0 · Y 0 · Z 0</dd></div>
+                </dl>
+              </details>
             </section>
-
-            <div class="alignment-actions inspect-actions">
-              <button class="alignment-cancel-button" id="clearInspection" type="button" disabled>Choose Another Surface</button>
-            </div>
           </div>
         </section>
 

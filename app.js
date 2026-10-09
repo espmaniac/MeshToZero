@@ -5732,9 +5732,9 @@ function resetSurfaceInspectionUi() {
   surfaceInspectionCache = null;
   inspectSurfaceEmpty.dataset.state = "waiting";
   inspectSurfaceResults.hidden = true;
-  inspectSurfaceStatus.textContent = "Click a planar surface";
+  inspectSurfaceStatus.textContent = "Click a flat area on the model";
   inspectSurfaceHint.textContent =
-    "Click away from edges. Meshes and point clouds are supported.";
+    "Pick near the middle of a face, away from edges.";
   syncInspectionPlanePicking(false);
 }
 
@@ -5784,15 +5784,17 @@ function updateSurfaceInspectionUi(references) {
       : referencePlane.name + " · " + referencePlane.method;
 
     inspectSurfaceEmpty.dataset.state = "ready";
-    inspectSurfaceStatus.textContent = "Surface fitted";
+    inspectSurfaceStatus.textContent = "Surface selected";
     inspectSurfaceHint.textContent =
-      fittedLocal.pointCount +
-      " neighboring points. Choose or click the reference plane to compare.";
+      "Choose a reference plane below to compare its orientation.";
     inspectSurfaceResults.hidden = false;
     inspectComparisonAngle.textContent = formatInspectionAngle(angle);
     inspectComparisonPlane.textContent = "Surface ↔ " + referenceLabel;
     inspectAlignmentState.textContent =
-      angle <= 0.001 ? "Exact" : angle <= 0.1 ? "Nearly exact" : "Tilted";
+      angle <= 0.001 ? "Parallel"
+        : angle <= 0.1 ? "Nearly parallel"
+        : angle >= 89.999 ? "Perpendicular"
+        : "Tilted";
     inspectNormalMatch.textContent = (normalMatch * 100).toFixed(4) + "%";
     inspectSampleCount.textContent = fittedLocal.pointCount.toLocaleString("en-US");
     inspectFitRms.textContent = formatInspectionDistance(fittedLocal.rmsError);
