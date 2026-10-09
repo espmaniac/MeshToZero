@@ -5256,6 +5256,20 @@ function mountCadWorkspacePanels() {
 
 mountCadWorkspacePanels();
 
+const mobilePanelToggle = document.querySelector("#mobilePanelToggle");
+function setMobilePanelOpen(open) {
+  rightRail.classList.toggle("mobile-inspector-open", open);
+  mobilePanelToggle.setAttribute("aria-expanded", String(open));
+  mobilePanelToggle.textContent = open ? "Hide panel" : "Properties";
+  if (open && window.matchMedia("(max-width: 700px), (max-width: 900px) and (max-height: 500px)").matches) {
+    leftRail.classList.remove("scene-open");
+    document.querySelector("#sceneToggle").setAttribute("aria-expanded", "false");
+  }
+}
+mobilePanelToggle.addEventListener("click", () => {
+  setMobilePanelOpen(!rightRail.classList.contains("mobile-inspector-open"));
+});
+
 const settingsDialog = document.querySelector("#settingsDialog");
 for (const button of document.querySelectorAll("#settingsButton, [data-open-settings]")) {
   button.addEventListener("click", () => settingsDialog.showModal());
@@ -5266,6 +5280,7 @@ for (const button of settingsDialog.querySelectorAll("[data-close-settings]")) {
 document.querySelector("#sceneToggle").addEventListener("click", (event) => {
   const isOpen = leftRail.classList.toggle("scene-open");
   event.currentTarget.setAttribute("aria-expanded", String(isOpen));
+  if (isOpen) setMobilePanelOpen(false);
 });
 
 const sectionButtons = [...document.querySelectorAll("[data-section]")];
@@ -5891,6 +5906,7 @@ function updateLeftRailWorkbench() {
             ? "Align and level tools"
             : null;
   const isWorkbenchOpen = Boolean(activeLabel);
+  setMobilePanelOpen(isWorkbenchOpen);
   leftRail.classList.toggle("has-active-workbench", isWorkbenchOpen);
   rightRail.classList.toggle("has-active-workbench", isWorkbenchOpen);
   leftRail.setAttribute("aria-label", "Model tools and browser");
@@ -7149,9 +7165,6 @@ function updateTransformGizmoUi() {
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   }
-  const snappingEnabled = state.transformGizmo.gridSnap || state.transformGizmo.angleSnap ||
-    Object.values(state.transformGizmo.objectSnap).some(Boolean);
-  document.querySelector("#snapSummary").textContent = snappingEnabled ? "Snapping on" : "Snapping off";
   updateSnapAlignModeHint();
 }
 
