@@ -878,8 +878,21 @@ body {
 }
 
 .command-strip .tool-panel {
-  background: transparent;
+  width: max-content;
+  max-width: calc(100% - 20px);
+  height: 40px;
+  margin: 4px 10px;
+  padding: 3px;
+  background: #545454;
+  border: 1px solid #484848;
+  border-radius: 8px;
   gap: 4px;
+}
+
+.command-strip .gizmo-segment {
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .command-strip .tool-gizmo-slot {
@@ -900,7 +913,7 @@ body {
   top: 7px;
   bottom: 7px;
   width: 1px;
-  background: #545454;
+  background: #707070;
   pointer-events: none;
 }
 
@@ -930,6 +943,8 @@ body {
 
 .command-strip .rail-button,
 .command-strip .gizmo-option {
+  min-height: 32px;
+  height: 32px;
   color: #f5f5f5;
   background: transparent;
   border: 1px solid transparent;
@@ -946,9 +961,15 @@ body {
 
 .command-strip .rail-button.is-active,
 .command-strip .gizmo-option.is-active {
-  background: #3285e5;
-  border-color: #246cad;
-  color: #ffffff;
+  background: #858585;
+  border-color: #a3a3a3;
+  color: #171717;
+}
+
+.command-strip .rail-button:focus-visible,
+.command-strip .gizmo-option:focus-visible {
+  outline: 2px solid #dddddd;
+  outline-offset: -2px;
 }
 
 /* Scene browser and inspector use the same permanent middle-gray surface. */
