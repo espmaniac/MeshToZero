@@ -1296,3 +1296,76 @@ input:checked + .toggle-track,
 .inspect-technical-details .inspect-detail-list {
   margin-bottom: 0;
 }
+
+.repository-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 32px;
+  flex: 0 0 auto;
+  color: #dddddd;
+  border-radius: 5px;
+}
+.repository-link:hover { background: #707070; color: #ffffff; }
+.mobile-panel-toggle { display: none; }
+
+/* Phone panels overlay the viewport without displacing its bottom controls. */
+@media (max-width: 700px), (max-width: 900px) and (max-height: 500px) {
+  :root { --cad-inspector-width: 0px; --cad-left-width: 0px; }
+  .app-shell, .workspace { height: 100dvh; min-height: 100dvh; }
+  .topbar { height: calc(48px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
+  .topbar .brand { min-width: 0; width: auto; padding: 0 8px; }
+  .brand span, .cad-menu-bar { display: none; }
+  .topbar .header-actions { margin-left: auto; gap: 4px; padding-right: 6px; }
+  .header-actions .action-button, .header-actions .theme-toggle {
+    display: inline-flex; width: 40px; min-width: 40px; height: 40px; padding: 0; justify-content: center;
+  }
+  .action-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .command-strip { top: calc(48px + env(safe-area-inset-top)); height: 56px; }
+  .command-strip .tool-panel { height: 48px; margin: 4px 6px; max-width: calc(100% - 12px); padding: 1px; touch-action: pan-x; }
+  .command-strip .rail-button, .command-strip .gizmo-option { height: 44px; min-height: 44px; font-size: 11px; }
+  .viewport-display-slot { top: calc(112px + env(safe-area-inset-top)); left: 8px; }
+  .viewport-display-slot .display-tab { min-height: 40px; }
+  .view-toolbar {
+    top: auto; bottom: calc(48px + env(safe-area-inset-bottom)); left: 6px; right: 6px;
+    height: 44px; max-width: calc(100% - 12px); margin-inline: auto; padding: 0 2px;
+  }
+  .view-toolbar .view-button, .view-toolbar .history-button { width: 40px; height: 40px; flex: 0 0 auto; }
+  .view-toolbar .history-actions { height: 40px; }
+  .cad-statusbar { height: calc(40px + env(safe-area-inset-bottom)); padding: 0 4px env(safe-area-inset-bottom); align-items: center; }
+  .repository-link { width: 40px; height: 40px; }
+  .mobile-panel-toggle { display: block; min-height: 40px; padding: 0 8px; background: transparent; color: #eeeeee; font-size: 11px; }
+  .coordinate-dock { position: static; height: auto; flex: 1; min-width: 0; align-self: center; padding: 0 4px; border: 0; background: transparent; }
+  .coordinate-dock .status-position { font-size: 8px; white-space: normal; }
+  .coordinate-dock .view-cube { position: absolute; right: 8px; bottom: calc(104px + env(safe-area-inset-bottom)); width: 72px; height: 96px; }
+  .coordinate-dock .view-cube-canvas { width: 72px; height: 72px; }
+  .right-rail, .right-rail.has-active-workbench {
+    display: none; top: auto; left: 6px; right: 6px; bottom: calc(100px + env(safe-area-inset-bottom));
+    width: auto; height: min(42dvh, 360px); max-height: calc(100dvh - 264px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    border: 1px solid #434343; border-radius: 8px; overflow: hidden;
+  }
+  .right-rail.mobile-inspector-open { display: flex; }
+  .right-rail .inspector-panel { min-height: 0; }
+  .right-rail .transform-card { max-height: 100%; overflow-y: auto; }
+  .right-rail.mobile-inspector-open ~ .cad-statusbar .view-cube { display: none; }
+  .left-rail { display: none; }
+  .left-rail.scene-open { top: calc(112px + env(safe-area-inset-top)); bottom: calc(100px + env(safe-area-inset-bottom)); left: 6px; width: min(280px, calc(100% - 12px)); height: auto; border-radius: 8px; overflow-y: auto; }
+  .workbench-scroll, .settings-content { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .right-rail input, .right-rail select, .settings-dialog input { font-size: 16px; }
+  .right-rail .icon-button { width: 40px; height: 40px; }
+  .right-rail .workbench-header { min-height: 48px; }
+  .status-help-slot { display: none; }
+  .toast { top: 160px; bottom: auto; max-width: calc(100% - 24px); }
+}
+
+@media (max-width: 900px) and (max-height: 500px) {
+  .right-rail, .right-rail.has-active-workbench {
+    top: calc(112px + env(safe-area-inset-top));
+    left: auto;
+    right: 6px;
+    width: min(340px, calc(100% - 12px));
+    height: auto;
+    max-height: none;
+  }
+}
