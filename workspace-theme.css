@@ -1375,7 +1375,18 @@ input:checked + .toggle-track,
 .smart-plane-toolbar {
   display: grid; gap: 6px; width: 100%; min-width: 0;
 }
-.smart-plane-actions { display: flex; align-items: center; gap: 6px; overflow-x: auto; white-space: nowrap; }
+.smart-plane-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.smart-plane-controls, .smart-plane-methods {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  overflow-x: auto; white-space: nowrap; overscroll-behavior-x: contain;
+}
+.smart-plane-controls { flex: 1; }
+.smart-plane-controls label { flex: 0 0 auto; }
+.smart-plane-methods { padding-top: 6px; border-top: 1px solid #484848; }
+.smart-plane-methods button { flex: 0 0 auto; }
+#smartReferencePlane { max-width: 150px; }
+#smartPlaneSave { border-color: #888888; }
+#smartPlaneSave:not(:disabled) { background: #858585; color: #171717; }
 #smartToolbarStatus { color: #eeeeee; font-size: 11px; line-height: 1.4; }
 .smart-plane-toolbar label { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
 .smart-plane-toolbar button, .smart-plane-toolbar select, .smart-plane-toolbar input {
@@ -1406,11 +1417,11 @@ input:checked + .toggle-track,
     bottom: calc(48px + env(safe-area-inset-bottom));
     left: 6px; right: 6px; width: calc(100% - 12px); margin-inline: auto;
   }
-  #smartToolbarStatus { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #smartToolbarStatus { white-space: normal; }
   .workspace:has(.view-toolbar.is-plane-picking) .right-rail {
-    bottom: calc(144px + env(safe-area-inset-bottom));
+    bottom: calc(60px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom));
   }
   .workspace:has(.view-toolbar.is-plane-picking) .coordinate-dock .view-cube {
-    bottom: calc(148px + env(safe-area-inset-bottom));
+    bottom: calc(64px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom));
   }
 }
