@@ -117,3 +117,17 @@ Current model transformations are baked into exported vertex coordinates.
 - Workspace settings contains coordinate space, grid and angle increments, and geometry snapping. The status bar shows whether snapping is active. Settings apply immediately for the current session.
 - The top reference grid is shown initially; enable Front and Right in the Scene panel as needed.
 - The viewport fills the window behind the interface. ViewCube is centered above the coordinate readout at the bottom right.
+
+### Interactive plane picking
+
+Create Plane opens in **Pick from model** mode. Hover over the model to see the next reference, then click a surface, three points, an edge and a point, or two coplanar edges. Feature edges are picked directly; triangle diagonals are not treated as feature edges. The floating toolbar provides geometry filters, Undo pick, Clear, Flip normal, and a signed offset in model millimeters.
+
+A valid selection shows a temporary preview. **Create Plane** saves it as construction geometry and adds an undoable history entry. One edge, collinear points, and skew edges remain incomplete or invalid until the selection is corrected. For a single surface, choose Flat area, Tangent, or Local best fit explicitly; a failed flat-area fit never silently switches methods. Point clouds support point picking and Flat area / Local best fit surface sampling, but do not provide tangent normals.
+
+Automatic whole-model analysis and Manual methods remain available. Closing the tool, changing modes, clearing the selection, or replacing the model removes the temporary preview.
+
+Geometry regression checks can be run from the browser console while the app is open:
+
+```js
+(await import("./tests/smart-plane.browser.js")).runSmartPlaneTests();
+```

@@ -1369,3 +1369,34 @@ input:checked + .toggle-track,
     max-height: none;
   }
 }
+
+.plane-mode-switch [data-plane-mode="pick"] { grid-column: 1 / -1; }
+.smart-plane-toolbar[hidden], .smart-plane-toolbar [hidden] { display: none; }
+.smart-plane-toolbar {
+  position: absolute; z-index: 35; top: 148px;
+  left: calc(var(--cad-left-width) + 10px); right: calc(var(--cad-inspector-width) + 10px);
+  display: grid; gap: 6px; padding: 6px;
+  background: #545454; border: 1px solid #434343; border-radius: 8px;
+}
+.smart-plane-actions { display: flex; align-items: center; gap: 6px; overflow-x: auto; white-space: nowrap; }
+#smartToolbarStatus { color: #eeeeee; font-size: 11px; line-height: 1.4; }
+.smart-plane-toolbar label { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+.smart-plane-toolbar button, .smart-plane-toolbar select, .smart-plane-toolbar input {
+  min-height: 34px; border: 1px solid #707070; border-radius: 4px;
+  padding: 4px 7px; background: #646463; color: #ffffff; font: inherit; font-size: 11px;
+}
+.smart-plane-toolbar button { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; cursor: pointer; }
+.smart-plane-toolbar button .icon { width: 16px; height: 16px; }
+.smart-plane-toolbar input { width: 70px; }
+.smart-plane-toolbar button:disabled, .smart-plane-toolbar input:disabled { opacity: .45; cursor: not-allowed; }
+.smart-plane-toolbar button[aria-pressed="true"] { background: #858585; color: #171717; }
+#smartPlaneStatus { font-size: 12px; color: #eeeeee; }
+@media (max-width: 700px), (max-width: 900px) and (max-height: 500px) {
+  .smart-plane-toolbar { top: calc(160px + env(safe-area-inset-top)); left: 6px; right: 6px; }
+  .smart-plane-toolbar button, .smart-plane-toolbar select, .smart-plane-toolbar input { min-height: 40px; }
+  .smart-plane-toolbar input { font-size: 16px; }
+}
+
+@media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+  .smart-plane-toolbar { right: auto; width: min(300px, calc(100% - 356px)); min-width: 154px; }
+}

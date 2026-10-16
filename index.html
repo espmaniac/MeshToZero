@@ -280,6 +280,18 @@
         </header>
 
         <div class="command-strip" id="commandStrip" aria-label="Model commands"></div>
+        <div class="smart-plane-toolbar" id="smartPlaneToolbar" role="toolbar" aria-label="Plane picking actions" hidden>
+          <div class="smart-plane-actions">
+          <label>Pick <select id="smartPickFilter" aria-label="Pick geometry"><option value="auto">Auto</option><option value="point">Points</option><option value="edge">Edges</option><option value="surface">Surface</option></select></label>
+          <button id="smartPlaneUndo" type="button" title="Undo last pick"><svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg><span>Undo pick</span></button>
+          <button id="smartPlaneClear" type="button">Clear</button>
+          <label hidden>Surface <select id="smartSurfaceMode"><option value="planar-surface">Flat area</option><option value="tangent">Tangent</option><option value="best-fit">Local best fit</option></select></label>
+          <button id="smartPlaneFlip" type="button" aria-pressed="false">Flip normal</button>
+          <label>Offset <input id="smartPlaneOffset" type="number" value="0" step="0.1" aria-label="Plane offset in model millimeters"> mm</label>
+          <button id="smartPlaneSave" type="button">Create Plane</button>
+          </div>
+          <output id="smartToolbarStatus" aria-live="polite"></output>
+        </div>
 
         <div class="model-status" id="modelStatus" aria-live="polite" hidden>
           <span class="status-dot" aria-hidden="true"></span>
@@ -401,6 +413,7 @@
             <section class="plane-mode-section" aria-labelledby="planeModeTitle">
               <p class="workbench-label" id="planeModeTitle">Creation mode</p>
               <div class="plane-mode-switch" role="group" aria-label="Plane creation mode">
+                <button class="plane-mode-button" type="button" data-plane-mode="pick" aria-pressed="false"><svg class="icon choice-icon" aria-hidden="true"><use href="#icon-select"></use></svg><strong>Pick from model</strong><small>Detect from clicks</small></button>
                 <button class="plane-mode-button is-active" type="button" data-plane-mode="automatic" aria-pressed="true"><svg class="icon choice-icon" aria-hidden="true"><use href="#choice-fit"></use></svg>
                   <strong>Automatic</strong>
                   <small>Analyze model</small>
@@ -410,6 +423,7 @@
                   <small>Pick references</small>
                 </button>
               </div>
+              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick a surface, an edge, or three points.</p><p class="alignment-hint">Hover to see the reference before picking. Use the floating toolbar to refine the selection. Nothing is saved until you choose Create Plane. Surface offsets use model millimeters.</p></div>
               <p class="plane-mode-description" id="planeModeDescription">Create planes from the complete model automatically.</p>
             </section>
 
