@@ -1,4 +1,4 @@
-import { getPickedPlaneCandidates } from "./smart-plane.js";
+import { getPickedPlaneCandidates, getPickedPlaneSpace } from "./smart-plane.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
@@ -3297,9 +3297,11 @@ class ThreeViewport {
     this.smartPlanePreview = null;
     if (!plane) return;
     const basis = normalizePlaneBasis(plane.normal, plane.xAxis);
-    this.smartPlanePreview = this.createPlaneVisual({ ...plane, ...basis, space: "model" }, 0x2386ff);
+    const space = plane.space || "model";
+    this.smartPlanePreview = this.createPlaneVisual({ ...plane, ...basis, space }, 0x2386ff);
     this.smartPlanePreview.name = "Picked plane preview";
-    this.constructionModelGroup.add(this.smartPlanePreview);
+    const parent = space === "world" ? this.constructionWorldGroup : this.constructionModelGroup;
+    parent.add(this.smartPlanePreview);
   }
 
   undoSmartPick() {
@@ -3310,12 +3312,15 @@ class ThreeViewport {
   }
 
   getSmartPick(event) {
-    if (!this.renderModel || !this.setRaycasterFromPointerEvent(event)) return null;
+    if (!this.setRaycasterFromPointerEvent(event)) return null;
     this.scene.updateMatrixWorld(true);
+    const filter = this.smartPickFilter || "auto";
     const scale = this.modelRoot.getWorldScale(new THREE.Vector3()).length();
     const tolerance = this.getConstructionVisualScale() * scale * 0.02;
     this.raycaster.params.Line.threshold = tolerance;
     this.raycaster.params.Points.threshold = tolerance;
+    if (filter === "plane" || (!this.renderModel && filter === "auto")) return this.getSmartReferencePlanePick();
+    if (!this.renderModel) return null;
     const surface = this.raycaster.intersectObjects(this.renderModel.surfaceGroup.children, false)[0];
     const cloud = this.raycaster.intersectObjects(this.renderModel.pointCloudGroup.children, false)[0];
     const edgeHit = this.raycaster.intersectObjects(this.renderModel.edgeGroup.children, false)
@@ -3323,9 +3328,20 @@ class ThreeViewport {
     const edge = this.getEdgeHitSegment(edgeHit);
     const triangle = this.getTriangleWorldPoints(surface);
     const inverse = this.modelRoot.matrixWorld.clone().invert();
-    const filter = this.smartPickFilter || "auto";
-    if (filter === "plane") return this.getSmartReferencePlanePick();
     if (filter === "auto" || filter === "point") {
+      const snap = this.getSnapCandidate(event, { includeGrid: filter === "point" });
+      if (snap) {
+        return { kind: "point", point: snap.point.clone().applyMatrix4(inverse),
+          normal: snap.normal ? this.transformNormalBetweenSpaces(snap.normal, "world", "model") : null,
+          worldPoint: snap.point.clone(), label: snap.label, source: "snap-" + snap.type };
+      }
+      if (this.modelCenterMarker.visible && this.raycaster.intersectObject(this.modelCenterHitTarget, false).length) {
+        const reference = this.getModelCenterReference();
+        const worldPoint = this.transformPointBetweenSpaces(reference.point, "model", "world");
+        if (this.getSnapScreenDistance(worldPoint, event) <= SNAP_PIXEL_TOLERANCE) {
+          return { ...reference, kind: "point", worldPoint };
+        }
+      }
       const candidates = [...triangle, ...(edge || [])];
       if (cloud && (!surface || cloud.distance < surface.distance)) candidates.push(cloud.point);
       candidates.sort((a, b) => this.getSnapScreenDistance(a, event) - this.getSnapScreenDistance(b, event));
@@ -3340,8 +3356,9 @@ class ThreeViewport {
     if (filter === "edge") return null;
     if (surface) {
       const reference = this.getSurfaceSelection(surface, true);
-      const usePoint = filter === "point" || (filter === "auto" && this.selectionReferences.length > 0 &&
-        !this.selectionReferences.some((selected) => ["surface", "plane"].includes(selected.kind)));
+      const hasPlane = this.selectionReferences.some((selected) => ["surface", "plane"].includes(selected.kind));
+      const hasPoint = this.selectionReferences.some((selected) => !selected.kind || selected.kind === "point");
+      const usePoint = filter === "point" || (filter === "auto" && this.selectionReferences.length > 0 && (!hasPlane || hasPoint));
       return { ...reference, ...this.getPlanarSurfaceViewHints(), kind: usePoint ? "point" : "surface",
         worldPoint: surface.point, outline: usePoint ? null : [...triangle, triangle[0]],
         label: usePoint ? "Point on surface" : "Surface", source: "smart-pick" };
@@ -3349,13 +3366,14 @@ class ThreeViewport {
     if (cloud) return { ...this.getPointCloudSelection(cloud), ...this.getPlanarSurfaceViewHints(),
       kind: filter === "surface" ? "surface" : "point", worldPoint: cloud.point,
       label: filter === "surface" ? "Point-cloud surface" : "Point" };
-    return null;
+    return filter === "auto" ? this.getSmartReferencePlanePick() : null;
   }
 
   getSmartPlaneReference(id) {
-    const plane = this.getPlaneInSpace(this.getReferencePlane(id), "model");
+    const reference = this.getReferencePlane(id);
+    const plane = this.getPlaneInSpace(reference, "model");
     const worldPoint = this.transformPointBetweenSpaces(plane.origin, "model", "world");
-    return { kind: "plane", planeId: id, plane, point: plane.origin.clone(),
+    return { kind: "plane", planeId: id, plane, sourceSpace: reference.space, point: plane.origin.clone(),
       normal: plane.normal.clone(), worldPoint, label: plane.name, source: "reference-plane" };
   }
 
@@ -5759,6 +5777,7 @@ let activePlaneMode = "pick";
 let activePlaneMethod = activePlaneMethods[activePlaneMode];
 let smartPlaneDefinition = null;
 let smartPlaneFlipped = false;
+let smartPathReversed = false;
 let smartSelectedMethod = null;
 let smartMethodExplicit = false;
 let smartAnalysisReferences = [];
@@ -5772,6 +5791,8 @@ const smartMethods = document.querySelector("#smartPlaneMethods");
 const smartOffset = document.querySelector("#smartPlaneOffset");
 const smartAngle = document.querySelector("#smartPlaneAngle");
 const smartPathPosition = document.querySelector("#smartPathPosition");
+const smartReversePath = document.querySelector("#smartReversePath");
+const smartModelCenter = document.querySelector("#smartModelCenter");
 const smartFlip = document.querySelector("#smartPlaneFlip");
 const smartUndo = document.querySelector("#smartPlaneUndo");
 const smartClear = document.querySelector("#smartPlaneClear");
@@ -5792,6 +5813,7 @@ function cachedSmartFit(cache, reference, fit) {
 
 function resetSmartParameters() {
   smartPlaneFlipped = false;
+  smartPathReversed = false;
   smartOffset.value = "0";
   smartAngle.value = "45";
   smartPathPosition.value = "50";
@@ -5890,6 +5912,14 @@ function updateSmartPlaneUi() {
   document.querySelector("#smartAngleField").hidden = !selected?.parameters.includes("angle");
   document.querySelector("#smartPathField").hidden = !selected?.parameters.includes("pathPosition");
   document.querySelector("#smartOffsetField").hidden = smartFlip.hidden = !selected;
+  const offsetSpace = getPickedPlaneSpace(selected?.id, references);
+  document.querySelector("#smartOffsetLabel").textContent = "Offset (" + offsetSpace + ")";
+  smartOffset.setAttribute("aria-label", "Plane offset in " + offsetSpace + " millimeters");
+  smartReversePath.hidden = selected?.id !== "along-path";
+  smartReversePath.setAttribute("aria-pressed", String(smartPathReversed));
+  smartModelCenter.hidden = !["auto", "point"].includes(smartFilter.value);
+  smartModelCenter.disabled = !viewport.renderModel || references.some((reference) => reference.source === "model-center") ||
+    references.length >= PLANE_METHODS["smart-pick"].maximum;
   smartUndo.disabled = smartClear.disabled = !references.length;
   smartFlip.setAttribute("aria-pressed", String(smartPlaneFlipped));
   smartPlaneDefinition = null;
@@ -5902,21 +5932,23 @@ function updateSmartPlaneUi() {
   if (selected) {
     try {
       const plane = viewport.getPlaneInSpace({
-        ...selected.build({ angle: smartAngle.valueAsNumber, pathPosition: smartPathPosition.valueAsNumber }),
+        ...selected.build({ angle: smartAngle.valueAsNumber, pathPosition: smartPathPosition.valueAsNumber, reversePath: smartPathReversed }),
         space: "world",
-      }, "model");
+      }, offsetSpace);
       const offset = smartOffset.valueAsNumber;
-      if (!Number.isFinite(offset)) throw new Error("Enter a finite offset in model millimeters.");
+      if (!Number.isFinite(offset)) throw new Error("Enter a finite offset in " + offsetSpace + " millimeters.");
       plane.normal = plane.normal.clone().multiplyScalar(smartPlaneFlipped ? -1 : 1);
       plane.origin = plane.origin.clone().addScaledVector(plane.normal, offset);
       if (![...plane.origin].every(Number.isFinite)) throw new Error("This offset is too large for a finite plane.");
       if (offset && selected.id !== "offset") plane.method += " + Offset";
       smartPlaneDefinition = plane;
-      smartStatus.textContent = plane.method + " — ready to create. Keep picking to change the construction.";
+      smartStatus.textContent = selected.id === "angle"
+        ? "At Angle — ready. Axis rotation: " + smartAngle.valueAsNumber + "° · plane angle: " + plane.angleToReference.toFixed(3) + "°."
+        : plane.method + " — ready to create. Keep picking to change the construction.";
     } catch (error) { smartStatus.textContent = error.message; }
   }
   viewport.setSmartPlanePreview(smartPlaneDefinition);
-  const summary = references.map((reference) => reference.kind === "plane" ? reference.label : reference.kind || "point").join(", ");
+  const summary = references.map((reference) => reference.label || reference.kind || "point").join(", ");
   selectionCount.textContent = references.length + (references.length === 1 ? " reference: " : " references: ") + summary;
   document.querySelector("#smartToolbarStatus").textContent = (references.length ? references.length + " picked · " : "") + smartStatus.textContent;
   selectionInstruction.textContent = smartStatus.textContent;
@@ -5932,6 +5964,8 @@ smartFilter.addEventListener("change", () => {
 smartAddReference.addEventListener("click", () => {
   viewport.addConstructionReference(viewport.getSmartPlaneReference(smartReferencePlane.value));
 });
+smartModelCenter.addEventListener("click", () => viewport.selectModelCenterReference());
+smartReversePath.addEventListener("click", () => { smartPathReversed = !smartPathReversed; updateSmartPlaneUi(); });
 smartUndo.addEventListener("click", () => viewport.undoSmartPick());
 smartClear.addEventListener("click", () => viewport.clearConstructionSelection());
 smartFlip.addEventListener("click", () => { smartPlaneFlipped = !smartPlaneFlipped; updateSmartPlaneUi(); });
@@ -6519,7 +6553,7 @@ createPlaneButton.addEventListener("click", () => {
     updateSmartPlaneUi();
     if (!smartPlaneDefinition) return;
     const beforeState = captureEditState();
-    viewport.createConstructionPlane({ ...smartPlaneDefinition, name: planeNameInput.value, space: "model" });
+    viewport.createConstructionPlane({ ...smartPlaneDefinition, name: planeNameInput.value });
     recordEdit("Create picked plane", beforeState);
     planeNameInput.value = "";
     viewport.clearConstructionSelection();

@@ -130,18 +130,23 @@ The toolbar offers the same constructions as Manual, based on the complete selec
 | Three points | 3 Points, Best Fit |
 | Four points in endpoint-pair order | 2 Edges, Best Fit |
 | Three or more points / edge endpoints | Best Fit |
-| Two coplanar feature edges | 2 Edges, Best Fit |
+| Two coplanar feature edges, or one edge and two endpoints of the other | 2 Edges, Best Fit |
 | One edge and one point | Edge + Point, Best Fit |
 | One edge or two points | Along Path, with a position from 0% to 100% |
 | One surface or reference plane, plus an edge or two points | At Angle, Perpendicular |
 | Two parallel flat surfaces or reference planes | Midplane |
 | One origin or saved reference plane | Offset |
+| One surface or reference plane and one point | Parallel through Point |
 
 When multiple constructions are valid, choose an icon and label in the toolbar before saving. Invalid constructions are disabled with an explanation. Exact construction never silently falls back to approximate Best Fit. A single applicable exact construction is previewed automatically, and more references can still be added. Up to 32 references are supported.
 
-Use **Pick → Planes** to click a visible construction/origin plane, or choose any origin or saved plane from the reference list and press **Add plane**. Use the Points, Edges, and Surfaces filters to control ambiguous picks. Auto continues selecting surfaces after the first surface so opposite faces can directly produce a Midplane. Point clouds support points, flat-area fitting, and local best fit; they do not supply tangent normals.
+Auto can select visible construction/origin planes where the pointer misses the model. Use **Pick → Planes** to select planes through the model, or choose any origin or saved plane from the reference list and press **Add plane**. Use the Points, Edges, and Surfaces filters to control ambiguous picks. Auto continues selecting surfaces after the first surface so opposite faces can directly produce a Midplane. Point clouds support points, flat-area fitting, and local best fit; they do not supply tangent normals. In Auto or Points mode, use **Model center** to include the bounds center as a point. Enabled object snaps are honored in both modes; Points also supports enabled grid snapping. Hover feedback and the reference summary identify the chosen snap.
 
-Method-specific angle and path position fields appear in the toolbar. Every selected construction supports Flip normal and a signed offset in model millimeters. Angles and perpendicularity are computed in world space so nonuniform scaling does not distort them. At Angle requires an axis parallel to the reference plane; Perpendicular requires a line that is not normal to it. Midplane requires separated parallel planes and handles opposite-facing normals.
+Method-specific axis rotation and path position fields appear in the toolbar. **Reverse path** swaps the start and end of an edge or two-point path. Every selected construction supports Flip normal and a signed offset; the field identifies whether its millimeters are measured in world or model space.
+
+Offset, At Angle, Perpendicular, and Parallel through Point retain the reference plane's coordinate space. Midplane uses the shared reference space, or world space for mixed references. World constructions stay fixed when the model moves, and offsets from world references remain exact world distances after nonuniform scaling. Other constructions follow the model.
+
+At Angle rotates the reference orientation around any nonzero picked axis, as Manual does. The toolbar reports axis rotation and actual plane inclination separately; they can differ for an oblique axis. Perpendicular requires a line that is not normal to its reference plane. Midplane requires parallel planes, handles opposite-facing normals, and accepts distinct coincident references.
 
 A valid construction shows a temporary preview. **Create Plane** saves it and adds an undoable history entry. Undo pick and Clear edit the references without saving. Closing the tool, changing modes, clearing references, or replacing the model removes the preview. Automatic whole-model analysis and the existing Manual workflow remain available.
 
