@@ -1,6 +1,6 @@
 // Run with the application's import map: import this module and call runSmartPlaneTests().
 import { Vector3 } from "three";
-import { getPickedPlaneCandidates, getPickedPlaneSpace, getPlaneConstructionWorkflows } from "../smart-plane.js";
+import { getPickedPlaneCandidates, getPickedPlaneSpace, getPlaneConstructionWorkflows, getSuggestedPlaneWorkflowIds } from "../smart-plane.js";
 
 export function runSmartPlaneTests() {
   let passed = 0;
@@ -250,5 +250,47 @@ export function runSmartPlaneTests() {
   workflowValid([reference(7), ...many], "best-fit");
   assert(fitCalls.at(-1).length === many.length, "Best Fit excludes saved plane origins"); passed++;
   workflowValid([reference(), through], "offset-point");
+
+  // Toolbar suggestions begin with geometry and cover the entire typed
+  // selection; incomplete or unrelated methods stay out of the suggestion set.
+  function suggestions(references, expected) {
+    const actual = getSuggestedPlaneWorkflowIds(references);
+    assert(JSON.stringify(actual) === JSON.stringify(expected), "Unexpected progressive methods: " + JSON.stringify(actual));
+    passed++;
+  }
+  suggestions([], []);
+  suggestions([surface()], ["planar-surface", "tangent", "local-best-fit", "offset", "midplane"]);
+  suggestions([cloud], ["planar-surface", "local-best-fit", "offset", "midplane"]);
+  suggestions([curved], ["planar-surface", "tangent", "local-best-fit", "offset", "midplane"]);
+  suggestions([reference()], ["offset", "midplane"]);
+  suggestions([world], ["offset", "midplane"]);
+  suggestions([a], ["local-best-fit"]);
+  suggestions([{ ...a, normal: new Vector3(0, 0, 1) }], ["tangent", "local-best-fit"]);
+  suggestions([{ ...a, source: "model-center" }], ["local-best-fit"]);
+  for (const references of [[edge(a, b)], [edge(a, a)], [a, b], [a, a]]) {
+    suggestions(references, ["along-path", "angle", "perpendicular"]);
+  }
+  for (const references of [[surface(), edge(a, b)], [edge(a, b), reference()], [surface(), a, b], [a, reference(), b]]) {
+    suggestions(references, ["angle", "perpendicular"]);
+  }
+  for (const references of [[a, b, c], [a, b, point(3, 0)]]) {
+    suggestions(references, ["three-points", "best-fit"]);
+  }
+  for (const references of [[a, b, c, d], [edge(a, b), edge(c, d)], [c, edge(a, b), d], [edge(a, b), edge(point(0, 0, 1), point(0, 1, 1))]]) {
+    suggestions(references, ["two-edges", "best-fit"]);
+  }
+  suggestions([edge(a, b), c], ["edge-point", "best-fit"]);
+  suggestions(many, ["best-fit"]);
+  suggestions([edge(a, b), edge(c, d), through], ["best-fit"]);
+  for (const references of [[surface(), surface(8)], [reference(), surface(8)], [reference(), reference(8)]]) {
+    suggestions(references, ["midplane"]);
+  }
+  suggestions([reference(0), reference(3, new Vector3(1, 0, 0))], ["midplane"]);
+  for (const references of [[surface(), through], [through, reference()]]) {
+    suggestions(references, ["offset-point"]);
+  }
+  for (const references of [[surface(), surface(2), edge(a, b)], [reference(), a, b, c], [{ ...a, kind: "unknown" }]]) {
+    suggestions(references, []);
+  }
   return { passed };
 }

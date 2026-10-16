@@ -1,4 +1,4 @@
-import { getPickedPlaneCandidates, getPickedPlaneSpace, getPlaneConstructionWorkflows } from "./smart-plane.js";
+import { getPickedPlaneCandidates, getPickedPlaneSpace, getPlaneConstructionWorkflows, getSuggestedPlaneWorkflowIds } from "./smart-plane.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
@@ -5804,6 +5804,7 @@ let smartSelectedMethod = null;
 let smartMethodExplicit = false;
 let smartAnalysisReferences = [];
 let smartCandidates = [];
+let smartVisibleCandidates = [];
 let smartSuggestedMethods = [];
 let smartPreviewPaused = false;
 let smartConstructionSession = null;
@@ -5821,6 +5822,7 @@ const smartSurfaceCache = new WeakMap();
 const smartToolbar = document.querySelector("#smartPlaneToolbar");
 const smartStatus = document.querySelector("#smartPlaneStatus");
 const smartMethods = document.querySelector("#smartPlaneMethods");
+const smartMethodRow = document.querySelector("#smartPlaneMethodRow");
 const smartMethodSelect = document.querySelector("#smartPlaneMethod");
 const smartReferenceA = document.querySelector("#smartMethodReferenceA");
 const smartReferenceB = document.querySelector("#smartMethodReferenceB");
@@ -5862,12 +5864,15 @@ function selectSmartMethod(id, explicit = true) {
 }
 
 function renderSmartMethods() {
-  const ids = smartCandidates.map((candidate) => candidate.id).join(",");
+  const hasMethods = smartVisibleCandidates.length > 0;
+  smartMethodRow.hidden = !hasMethods;
+  smartToolbar.classList.toggle("has-plane-methods", hasMethods);
+  const ids = smartVisibleCandidates.map((candidate) => candidate.id).join(",");
   if (smartMethods.dataset.methods !== ids) {
     smartMethods.dataset.methods = ids;
     smartMethods.replaceChildren();
     smartMethodSelect.replaceChildren(new Option("Choose method", ""));
-    for (const candidate of smartCandidates) {
+    for (const candidate of smartVisibleCandidates) {
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.smartMethod = candidate.id;
@@ -6004,14 +6009,29 @@ function updateSmartPlaneUi() {
   const available = inferred.candidates.filter((candidate) => !candidate.error);
   smartSuggestedMethods = available.map((candidate) => candidate.id);
   smartCandidates = getPlaneConstructionWorkflows(worldReferences, fitters).workflows;
+  const suggestedIds = getSuggestedPlaneWorkflowIds(references);
   smartSelectionHint = inferred.hint;
-  if (!smartMethodExplicit && changed) {
-    const approximateFallback = available.length === 1 && inferred.candidates.some((candidate) => candidate.error) &&
-      ["best-fit", "local-best-fit"].includes(available[0].id);
-    const next = available.length === 1 && !approximateFallback ? available[0].id : null;
+  if (!references.length) {
+    // Clearing the selection ends the contextual operation. Its controls must
+    // not remain visible just because the last method can use a saved plane.
+    if (smartSelectedMethod) smartOffsets.set(smartSelectedMethod, smartOffset.value);
+    smartSelectedMethod = null;
+    smartMethodExplicit = false;
+    smartReferenceExplicit.A = smartReferenceExplicit.B = false;
+    smartReferenceA.value = smartReferenceB.value = "";
+    smartPlaneFlipped = false;
+    smartPathReversed = false;
+  } else if (!smartMethodExplicit) {
+    const only = suggestedIds.length === 1 ? suggestedIds[0] : null;
+    const next = only && available.some((candidate) => candidate.id === only) &&
+      !["best-fit", "local-best-fit"].includes(only) ? only : null;
     if (next !== smartSelectedMethod) smartOffset.value = smartOffsets.get(next) ?? (next === "offset" ? "10" : "0");
     smartSelectedMethod = next;
   }
+  // Keep the current operation available through an incomplete Undo or an
+  // invalid additional pick. Other options always follow the picked geometry.
+  smartVisibleCandidates = smartCandidates.filter((candidate) => suggestedIds.includes(candidate.id) ||
+    (references.length > 0 && smartMethodExplicit && candidate.id === smartSelectedMethod));
   viewport.smartPickIntent = smartMethodExplicit ? smartSelectedMethod : null;
   renderSmartMethods();
   updateSmartMethodReferences(references, worldReferences, fitSurface);
@@ -6041,8 +6061,10 @@ function updateSmartPlaneUi() {
   smartFlip.setAttribute("aria-pressed", String(smartPlaneFlipped));
   smartPlaneDefinition = null;
   smartStatus.textContent = references.length
-    ? smartSelectionHint + " Choose any method in the toolbar to set its references and parameters."
-    : "Choose a method, or pick geometry to see matching constructions.";
+    ? (smartVisibleCandidates.length
+      ? "Choose a matching construction in the toolbar, or keep picking geometry."
+      : smartSelectionHint)
+    : "Pick a surface, an edge, points, or a reference plane to see matching constructions.";
   if (selected) {
     try {
       if (parameters.includes("referenceA") && !referenceA) throw new Error("Choose a reference plane in the toolbar, or pick a flat surface.");

@@ -411,7 +411,7 @@
                   <small>Pick references</small>
                 </button>
               </div>
-              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick surfaces, edges, points, or reference planes.</p><p class="alignment-hint">Choose any Manual method in the bottom toolbar before or after picking geometry. At Angle and Perpendicular need an edge or two points; choose their reference plane directly in the toolbar. Midplane accepts two picked surfaces or selected planes. The toolbar keeps your method and fields while you pick the remaining references. Nothing is saved until you choose Create Plane.</p></div>
+              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick surfaces, edges, points, or reference planes.</p><p class="alignment-hint">Pick geometry to reveal matching constructions in the bottom toolbar. An edge or two points offers Along Path, At Angle, and Perpendicular; choosing a method reveals its reference and parameter fields. A surface or plane offers Offset and Midplane, with a second reference available in the toolbar. Nothing is saved until you choose Create Plane.</p></div>
               <p class="plane-mode-description" id="planeModeDescription">Create planes from the complete model automatically.</p>
             </section>
 
@@ -1076,7 +1076,7 @@
               </div>
               <button id="smartPlaneSave" type="button">Create Plane</button>
             </div>
-            <div class="smart-plane-method-row">
+            <div class="smart-plane-method-row" id="smartPlaneMethodRow" hidden>
               <label>Method <select id="smartPlaneMethod" aria-label="Plane construction method"></select></label>
               <div class="smart-plane-methods" id="smartPlaneMethods" role="group" aria-label="Choose plane construction"></div>
             </div>

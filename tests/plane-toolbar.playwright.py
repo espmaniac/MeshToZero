@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check complete plane workflows in the contextual viewport toolbar.
+"""Check progressive plane workflows in the contextual viewport toolbar.
 
 Install the Python dependency with ``python -m pip install playwright``. Serve
 the repository with ``python -m http.server 8000``, then run:
@@ -65,7 +65,30 @@ def run(base_url):
                     };
                 }""")
 
+            def method_ids():
+                return page.locator("#smartPlaneMethod option").evaluate_all(
+                    "options => options.map(option => option.value).filter(Boolean)"
+                )
+
+            def assert_methods(expected, excluded=()):
+                actual = method_ids()
+                assert set(expected).issubset(actual), (expected, actual, status())
+                assert not set(excluded).intersection(actual), (excluded, actual, status())
+                assert page.locator("#smartPlaneMethodRow").is_visible()
+
+            def assert_empty():
+                actual = state()
+                assert actual["references"] == [] and not actual["preview"], actual
+                assert page.locator("#smartPlaneMethodRow").is_hidden()
+                assert page.locator("#smartPlaneParameters").is_hidden()
+                assert page.locator("[data-smart-method]:visible").count() == 0
+                assert page.locator("#smartPlaneMethod").input_value() == ""
+                assert method_ids() == []
+                assert page.locator("#smartPlaneSave").is_disabled()
+                assert page.evaluate("window.__workflowTest.viewport.smartPickIntent") is None
+
             def choose_method(method):
+                assert method in method_ids(), (method, method_ids(), status())
                 page.locator("#smartPlaneMethod").select_option(method)
                 assert page.locator(f'[data-smart-method="{method}"]').get_attribute("aria-pressed") == "true"
 
@@ -79,15 +102,21 @@ def run(base_url):
                         });
                     }""", point)
 
-            def add_edge():
-                page.evaluate("""() => {
+            def add_edge(first=(0, 0, 0), second=(2, 0, 0)):
+                page.evaluate("""endpoints => {
                     const viewport = window.__workflowTest.viewport;
                     const Vector = viewport.camera.position.constructor;
+                    const edge = endpoints.map(point => new Vector(...point));
                     viewport.addConstructionReference({
-                        kind: 'edge', point: new Vector(1, 0, 0),
-                        edge: [new Vector(0, 0, 0), new Vector(2, 0, 0)], source: 'test-edge',
+                        kind: 'edge', point: edge[0].clone().add(edge[1]).multiplyScalar(0.5),
+                        edge, source: 'test-edge',
                     });
-                }""")
+                }""", [first, second])
+
+            def add_plane(plane_id):
+                page.locator("#smartPickFilter").select_option("plane")
+                page.locator("#smartReferencePlane").select_option(plane_id)
+                page.locator("#smartAddReference").click()
 
             def assert_ready():
                 assert state()["preview"] and page.locator("#smartPlaneSave").is_enabled(), status()
@@ -99,7 +128,7 @@ def run(base_url):
                 page.locator("#smartPlaneSave").click()
                 actual = page.evaluate("""() => {
                     const plane = window.__workflowTest.viewport.constructionPlanes.at(-1);
-                    return { origin: plane.origin.toArray(), normal: plane.normal.toArray(),
+                    return { id: plane.id, origin: plane.origin.toArray(), normal: plane.normal.toArray(),
                         space: plane.space, name: plane.name };
                 }""")
                 for field in ["origin", "normal"]:
@@ -109,141 +138,174 @@ def run(base_url):
                     ), (before, actual)
                 assert actual["space"] == before["preview"]["space"]
                 assert actual["name"] == name
-                after = state()
-                assert after["count"] == before["count"] + 1 and not after["preview"], after
-                assert page.locator("#smartPlaneSave").is_disabled()
+                assert state()["count"] == before["count"] + 1
+                assert_empty()
                 return actual
 
-            assert page.locator("[data-smart-method]").count() == 10
-            assert page.locator("[data-smart-method]:disabled").count() == 0
-            print("PASS all ten methods selectable before geometry", flush=True)
+            assert_empty()
+            assert not page.locator(".view-navigation").is_visible()
+            page.locator('[data-plane-mode="manual"]').click()
+            assert page.locator('[data-plane-mode-panel="manual"] [data-plane-method]:visible').count() == 10
+            page.locator('[data-plane-mode="pick"]').click()
+            assert_empty()
+            print("PASS empty Pick mode hides methods and parameters; Manual keeps all ten methods", flush=True)
 
-            # Method-first Angle must retain the method and inputs while the axis
-            # is incomplete, after Undo, and when changing reference planes.
+            # A lone point does not expose unrelated construction choices. The
+            # second point makes path and reference-plane constructions relevant.
+            page.locator("#smartModelCenter").click()
+            assert method_ids() == ["local-best-fit"], method_ids()
+            page.locator("#smartPlaneClear").click()
+            assert_empty()
+            add_points([(0, 0, 0)])
+            assert "angle" not in method_ids()
+            add_points([(2, 0, 0)])
+            assert_methods(["along-path", "angle", "perpendicular"], ["three-points", "two-edges"])
+            assert page.locator("#smartPlaneMethod").input_value() == ""
+            assert not state()["preview"]
             choose_method("angle")
             assert page.locator("#smartAngleField").is_visible()
             assert page.locator("#smartMethodReferenceAField").is_visible()
-            assert not state()["preview"]
+            page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
             page.locator("#smartPlaneAngle").fill("37")
-            add_points([(0, 0, 0)])
-            assert page.locator("#smartPlaneMethod").input_value() == "angle"
-            assert not state()["preview"]
-            add_points([(2, 0, 0)])
             assert_ready()
-            assert page.locator("#smartPlaneAngle").input_value() == "37"
             page.locator("#smartPlaneUndo").click()
             assert not state()["preview"]
             assert page.locator("#smartPlaneMethod").input_value() == "angle"
+            assert page.locator("#smartPlaneAngle").input_value() == "37"
             add_points([(2, 0, 0)])
             assert_ready()
+            before_reference = state()["preview"]
             page.locator("#smartMethodReferenceA").select_option("saved:world-xz")
             assert_ready()
-            page.locator("#smartPlaneAngle").fill("1e309")
-            assert not state()["preview"]
-            assert page.locator("#smartPlaneSave").is_disabled()
+            assert state()["preview"] != before_reference
+            for invalid in ["", "1e309"]:
+                page.locator("#smartPlaneAngle").fill(invalid)
+                assert not state()["preview"]
+                assert page.locator("#smartPlaneSave").is_disabled()
             page.locator("#smartPlaneAngle").fill("45")
-            assert_ready()
             save("Angle from toolbar")
-            print("PASS method-first Angle, partial picks/Undo, reference edits, invalid angle, name and preview/save parity", flush=True)
+            print("PASS two-point Angle suggestions, partial Undo, reference edits, invalid angle and preview/save parity", flush=True)
 
-            # The same workflow must also work with geometry picked first.
-            page.locator("#closePlaneWorkbench").click()
-            page.locator("#planeButton").click()
             add_edge()
+            assert_methods(["along-path", "angle", "perpendicular"], ["three-points", "two-edges"])
+            assert not state()["preview"]
             choose_method("angle")
             assert_ready()
             assert state()["references"] == ["edge"]
+            page.locator("#smartPlaneUndo").click()
+            assert_empty()
+            add_edge()
+            assert page.locator("#smartPlaneMethod").input_value() == ""
+            choose_method("angle")
             save("Edge angle")
-            print("PASS edge-first Angle without a picked plane", flush=True)
+            print("PASS edge-first Angle and Undo-to-zero clears explicit method intent", flush=True)
 
-            for method, points in [
-                ("three-points", [(0, 0, 0), (2, 0, 0), (0, 3, 0)]),
-                ("best-fit", [(0, 0, 0), (2, 0, 0), (0, 3, 0), (1, 1, 0.2)]),
-                ("two-edges", [(0, 0, 0), (2, 0, 0), (0, 3, 0), (2, 3, 0)]),
-                ("along-path", [(0, 0, 0), (2, 0, 0)]),
-                ("perpendicular", [(0, 0, 0), (2, 0, 0)]),
-            ]:
-                choose_method(method)
-                assert not state()["preview"]
-                add_points(points)
-                assert_ready()
-                if method == "along-path":
-                    page.locator("#smartPathPosition").fill("25")
-                    assert_ready()
-                    assert abs(state()["preview"]["origin"][0] - 0.5) < 1e-9
+            add_points([(0, 0, 0), (2, 0, 0), (0, 3, 0)])
+            assert_methods(["three-points", "best-fit"], ["angle", "along-path", "two-edges"])
+            choose_method("three-points")
+            save("Three picked points")
+            add_points([(0, 0, 0), (2, 0, 0), (0, 3, 0)])
+            choose_method("best-fit")
+            add_points([(1, 1, 0.2)])
+            assert page.locator("#smartPlaneMethod").input_value() == "best-fit"
+            save("Best fit samples")
+            add_edge()
+            add_edge((0, 3, 0), (2, 3, 0))
+            assert_methods(["two-edges", "best-fit"], ["angle", "along-path", "three-points"])
+            choose_method("two-edges")
+            save("Two picked edges")
+            add_points([(0, 0, 0), (2, 0, 0), (0, 3, 0), (2, 3, 0)])
+            choose_method("two-edges")
+            save("Four edge endpoints")
+            print("PASS progressive 3 Points, accumulating Best Fit, two real edges and four endpoints", flush=True)
+
+            for geometry in ["points", "edge"]:
+                if geometry == "points":
+                    add_points([(0, 0, 0), (2, 0, 0)])
+                else:
+                    add_edge()
+                choose_method("along-path")
+                page.locator("#smartPlaneOffset").fill("0")
+                for invalid in ["-1", "101", "1e309"]:
+                    page.locator("#smartPathPosition").fill(invalid)
+                    assert not state()["preview"]
+                    assert page.locator("#smartPlaneSave").is_disabled()
+                page.locator("#smartPathPosition").fill("25")
+                if page.locator("#smartReversePath").get_attribute("aria-pressed") == "true":
                     page.locator("#smartReversePath").click()
-                    assert_ready()
-                    assert abs(state()["preview"]["origin"][0] - 1.5) < 1e-9
-                save(method)
-                print("PASS", method, "method-first and exact preview/save parity", flush=True)
-
-            # Explicit surface methods should select a surface hit even near
-            # model vertices, rather than switching to point/edge inference.
-            for method in ["planar-surface", "tangent"]:
-                choose_method(method)
-                page.mouse.click(720, 350)
                 assert_ready()
-                assert state()["references"] == ["surface"]
-                save(method)
-                print("PASS", method, "method-first canvas surface selection", flush=True)
+                assert abs(state()["preview"]["origin"][0] - 0.5) < 1e-9
+                page.locator("#smartReversePath").click()
+                assert_ready()
+                assert abs(state()["preview"]["origin"][0] - 1.5) < 1e-9
+                save("Path from " + geometry)
+            add_points([(0, 0, 0), (2, 0, 0)])
+            choose_method("perpendicular")
+            page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
+            save("Perpendicular from picked line")
+            print("PASS path parameters/reversal/validation for points and edge; Perpendicular reference", flush=True)
 
+            # Picking a surface offers only relevant constructions, including a
+            # Midplane workflow whose second reference is chosen in the toolbar.
+            page.locator("#smartPickFilter").select_option("surface")
+            for method in ["planar-surface", "tangent"]:
+                page.mouse.click(720, 350)
+                assert_methods(["planar-surface", "tangent", "offset", "midplane"], ["angle", "three-points", "two-edges"])
+                assert state()["references"] == ["surface"]
+                assert not state()["preview"]
+                choose_method(method)
+                save(method)
+            print("PASS surface-first contextual Planar Surface/Tangent/Offset/Midplane choices", flush=True)
+
+            add_plane("world-xy")
+            assert_methods(["offset", "midplane"], ["angle", "tangent", "along-path"])
+            assert not state()["preview"]
             choose_method("offset")
-            assert_ready()
             page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
             page.locator("#smartPlaneOffset").fill("5")
             assert_ready()
             assert abs(state()["preview"]["origin"][2] - 5) < 1e-9
-            assert save("Offset from world")["space"] == "world"
-            plane_id = page.evaluate("window.__workflowTest.viewport.constructionPlanes.at(-1).id")
+            offset_plane = save("Offset from world")
+            assert offset_plane["space"] == "world"
+            # Saving hides all method fields, including Name, until another pick.
+            assert page.locator("#smartPlaneName").is_hidden()
+            add_plane("world-xy")
             choose_method("midplane")
             page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
-            page.locator("#smartMethodReferenceB").select_option("saved:" + plane_id)
+            page.locator("#smartMethodReferenceB").select_option("saved:" + offset_plane["id"])
+            page.locator("#smartPlaneOffset").fill("0")
             assert_ready()
             assert abs(state()["preview"]["origin"][2] - 2.5) < 1e-9
             page.locator("#smartMethodReferenceB").select_option("saved:world-yz")
             assert not state()["preview"]
             assert page.locator("#smartPlaneSave").is_disabled()
-            page.locator("#smartMethodReferenceB").select_option("saved:" + plane_id)
-            assert_ready()
-            assert save("World midpoint")["space"] == "world"
-            print("PASS Offset/Midplane toolbar references, nonparallel rejection, world ownership and exact preview/save parity", flush=True)
+            page.locator("#smartMethodReferenceB").select_option("saved:" + offset_plane["id"])
+            midpoint = save("World midpoint")
+            assert midpoint["space"] == "world"
+            print("PASS picked-plane Offset/Midplane with editable references, nonparallel rejection and world ownership", flush=True)
 
-            # Zero-pick constructions pause after saving. Editing only the name
-            # must resume a new preview without needing a geometry selection.
+            # Missing picked references return the tool to its empty state. A
+            # missing chosen reference with other picks retained blocks saving
+            # and requires an explicit replacement instead of silently changing.
+            add_plane(offset_plane["id"])
             choose_method("offset")
-            page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
-            assert state()["references"] == []
             assert_ready()
-            save("First zero-pick offset")
-            assert not state()["preview"]
-            page.locator("#smartPlaneName").fill("Renamed zero-pick offset")
-            assert_ready()
-            save("Renamed zero-pick offset")
-            print("PASS changing only Name resumes zero-pick Offset preview and saving", flush=True)
-
-            # Deleting an active saved reference must remove its stale picked
-            # wrapper and require an explicit replacement reference, rather than
-            # silently switching to a different plane or throwing from the UI.
-            active_id = page.evaluate("window.__workflowTest.viewport.constructionPlanes.at(-1).id")
-            page.locator("#smartPickFilter").select_option("plane")
-            page.locator("#smartReferencePlane").select_option(active_id)
-            page.locator("#smartAddReference").click()
-            page.locator("#smartMethodReferenceA").select_option("saved:" + active_id)
-            assert state()["references"] == ["plane"]
-            assert_ready()
-            page.get_by_role("button", name="Delete Renamed zero-pick offset", exact=True).click()
+            page.get_by_role("button", name="Delete Offset from world", exact=True).click()
+            assert_empty()
             assert not errors, errors
-            assert state()["references"] == []
+            add_plane("world-xy")
+            choose_method("offset")
+            page.locator("#smartMethodReferenceA").select_option("saved:" + midpoint["id"])
+            assert_ready()
+            page.get_by_role("button", name="Delete World midpoint", exact=True).click()
+            assert state()["references"] == ["plane"]
             assert page.locator("#smartMethodReferenceA").input_value() == ""
             assert not state()["preview"]
             assert page.locator("#smartPlaneSave").is_disabled()
             page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
             assert_ready()
-            print("PASS deleting active saved plane prunes picked references and requires an explicit replacement", flush=True)
+            print("PASS deleting picked/chosen references clears stale preview and requires valid replacement", flush=True)
 
-            # Replacing the model resets the construction session while keeping
-            # all ten base methods available. A point cloud has no tangent
-            # normal; Local Best Fit remains an explicit alternative.
             cloud_points = [f"{x} {y} 0" for x in range(-3, 4) for y in range(-3, 4)]
             ply = (
                 "ply\nformat ascii 1.0\nelement vertex 49\n"
@@ -254,14 +316,8 @@ def run(base_url):
                 "name": "workflow-grid.ply", "mimeType": "application/octet-stream", "buffer": ply.encode(),
             })
             page.wait_for_function('document.querySelector("#modelName").textContent === "workflow-grid.ply"')
-            assert page.locator("[data-smart-method]").count() == 10
-            assert page.locator("[data-smart-method]:disabled").count() == 0
-            assert page.locator("#smartPlaneMethod").input_value() == ""
-            assert state()["references"] == [] and state()["count"] == 0
-            assert not state()["preview"]
-            assert page.locator("#smartPlaneSave").is_disabled()
-            page.locator("#smartPickFilter").select_option("auto")
-            choose_method("tangent")
+            assert_empty()
+            assert state()["count"] == 0
             cloud_click = page.evaluate("""() => {
                 const viewport = window.__workflowTest.viewport;
                 const center = new viewport.camera.position.constructor(0, 0, 0)
@@ -270,25 +326,28 @@ def run(base_url):
                 return { x: rect.left + (center.x + 1) * rect.width / 2,
                     y: rect.top + (1 - center.y) * rect.height / 2 };
             }""")
+            page.locator("#smartPickFilter").select_option("surface")
             page.mouse.click(cloud_click["x"], cloud_click["y"])
             assert state()["references"] == ["surface"]
-            assert page.locator("#smartPlaneMethod").input_value() == "tangent"
-            assert not state()["preview"]
-            assert page.locator("#smartPlaneSave").is_disabled()
-            assert "tangent normal" in status(), status()
+            assert_methods(["planar-surface", "local-best-fit", "offset", "midplane"], ["tangent", "angle"])
             choose_method("local-best-fit")
-            assert_ready()
             save("Point-cloud local fit")
-            print("PASS model replacement resets tool state; point-cloud Tangent is rejected and Local Best Fit saves", flush=True)
+            print("PASS model replacement empties contextual state; cloud offers fitting and hides unsupported Tangent", flush=True)
 
-            # Choosing the empty method option returns to geometry inference.
+            # Clearing an explicit choice returns to contextual suggestions,
+            # rather than displaying all methods or silently choosing a path.
+            add_edge()
             choose_method("angle")
             page.locator("#smartPlaneMethod").select_option("")
-            add_edge()
-            assert page.locator("#smartPlaneMethod").input_value() == "along-path"
-            assert page.locator("#smartReversePath").is_visible()
-            assert_ready()
-            print("PASS clearing the explicit method restores edge-based Along Path inference", flush=True)
+            assert_methods(["along-path", "angle", "perpendicular"])
+            assert page.locator("#smartPlaneMethod").input_value() == ""
+            assert not state()["preview"]
+            page.locator("#smartPlaneClear").click()
+            assert_empty()
+            page.keyboard.press("Escape")
+            assert page.locator(".view-navigation").is_visible()
+            assert not state()["preview"]
+            print("PASS empty method restores contextual suggestions; Clear and close dispose preview and restore navigation", flush=True)
 
             result = page.evaluate("""async () =>
                 (await import('./tests/smart-plane.browser.js')).runSmartPlaneTests()
