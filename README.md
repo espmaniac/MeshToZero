@@ -118,6 +118,14 @@ Current model transformations are baked into exported vertex coordinates.
 - The top reference grid is shown initially; enable Front and Right in the Scene panel as needed.
 - The viewport fills the window behind the interface. ViewCube is centered above the coordinate readout at the bottom right.
 
+### Manual construction preview
+
+Manual shows a temporary plane as soon as the selected method has enough valid references. Offset and Midplane update immediately from their reference plane choices. Distance, angle, and path-position edits update the same geometry that Create Plane saves. Invalid geometry or nonfinite parameters remove the preview and explain what needs changing.
+
+Before the last required pick, pause the pointer over a model reference to preview the result. Planar Surface and Tangent can preview the first surface by hover; point-based methods preview the next point once it can define a plane. Hover never adds a reference or an edit-history entry: click to confirm it. Leaving the canvas restores the preview of the confirmed selection. Touch users see the preview after tapping references.
+
+Create Plane removes the temporary visual after saving. Change a parameter/reference or reopen the tool to preview another construction. Clearing picks, changing methods/modes, closing the tool, Escape, and model replacement clear or rebuild the preview from the current inputs; a pending hover cannot recreate an old plane after cancellation.
+
 ### Interactive plane picking
 
 Create Plane opens in **Pick from model** mode. Hover to inspect a reference, then click surfaces, real feature edges, or points. The bottom viewport toolbar replaces its history and navigation buttons with the active tool's controls. Closing the tool or switching modes restores the standard buttons.

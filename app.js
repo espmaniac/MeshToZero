@@ -1606,6 +1606,7 @@ class ThreeViewport {
       (event) => {
         if (event.button === 1 || event.button === 2) this.cancelViewTransition();
         this.activePointerButton = event.button;
+        this.onConstructionReferenceHover?.(null);
         if (event.button === 1) {
           this.syncOrbitTargetToModelCenter();
           this.controls.update();
@@ -1650,6 +1651,10 @@ class ThreeViewport {
         this.updateSmartHover(event);
         return;
       }
+      if (this.selectionConfig.enabled && this.selectionConfig.method !== "smart-pick") {
+        this.onConstructionReferenceHover?.(event.buttons === 0 && event.pointerType !== "touch"
+          ? { clientX: event.clientX, clientY: event.clientY } : null);
+      }
       if (this.snapAlignmentPicking.enabled && event.buttons === 0) {
         this.showSnapPreview(this.getSnapAlignmentCandidate(event), event);
       } else if (this.alignmentPlanePicking.enabled && event.buttons === 0) {
@@ -1668,6 +1673,7 @@ class ThreeViewport {
       }
     });
     this.canvas.addEventListener("pointerleave", () => {
+      this.onConstructionReferenceHover?.(null);
       this.setAlignmentPlaneHover(null);
       this.clearSmartHover();
       this.clearSnapPreview();
@@ -2025,6 +2031,7 @@ class ThreeViewport {
     this.planeSequence = 0;
     this.autoOrientationPlanePreview = null;
     this.onSelectionChange = null;
+    this.onConstructionReferenceHover = null;
     this.onPlanesChange = null;
     this.onModelCenterChange = null;
     this.onAlignmentPlanePick = null;
@@ -2432,7 +2439,7 @@ class ThreeViewport {
 
   configureConstructionSelection(enabled, method, maximumReferences) {
     if (!enabled || method !== "smart-pick") {
-      this.setSmartPlanePreview(null);
+      this.setPlanePreview(null);
       this.clearSmartHover();
       this.clearSnapPreview();
     }
@@ -3097,7 +3104,7 @@ class ThreeViewport {
   }
 
   clearConstructionSelection() {
-    this.setSmartPlanePreview(null);
+    this.setPlanePreview(null);
     this.clearSmartHover();
     this.clearSnapPreview();
     while (this.selectionGroup.children.length) {
@@ -3292,16 +3299,16 @@ class ThreeViewport {
     this.smartHoverVisual = null;
   }
 
-  setSmartPlanePreview(plane) {
-    if (this.smartPlanePreview) this.disposeObject3D(this.smartPlanePreview);
-    this.smartPlanePreview = null;
+  setPlanePreview(plane) {
+    if (this.planePreview) this.disposeObject3D(this.planePreview);
+    this.planePreview = null;
     if (!plane) return;
     const basis = normalizePlaneBasis(plane.normal, plane.xAxis);
     const space = plane.space || "model";
-    this.smartPlanePreview = this.createPlaneVisual({ ...plane, ...basis, space }, 0x2386ff);
-    this.smartPlanePreview.name = "Picked plane preview";
+    this.planePreview = this.createPlaneVisual({ ...plane, ...basis, space }, 0x2386ff);
+    this.planePreview.name = "Construction plane preview";
     const parent = space === "world" ? this.constructionWorldGroup : this.constructionModelGroup;
-    parent.add(this.smartPlanePreview);
+    parent.add(this.planePreview);
   }
 
   undoSmartPick() {
@@ -3421,6 +3428,17 @@ class ThreeViewport {
       return;
     }
 
+    const reference = this.getManualConstructionReference(event);
+    if (reference) this.addConstructionReference(reference);
+    else showToast(this.selectionConfig.method === "tangent"
+      ? "Tangent Plane requires a mesh surface. Use Planar Surface for point clouds."
+      : this.selectionConfig.method === "planar-surface"
+        ? "No model surface or point was found under the pointer."
+        : "No model vertex was found under the pointer.");
+  }
+
+  getManualConstructionReference(event) {
+    if (!this.renderModel || !this.selectionConfig.enabled) return null;
     const requiresDirectModelPick = ["tangent", "planar-surface"].includes(
       this.selectionConfig.method,
     );
@@ -3430,17 +3448,16 @@ class ThreeViewport {
         this.modelRoot.updateMatrixWorld(true);
         const worldToModel = this.modelRoot.matrixWorld.clone().invert();
         const normalMatrix = new THREE.Matrix3().getNormalMatrix(worldToModel);
-        this.addConstructionReference({
+        return {
           point: snap.point.clone().applyMatrix4(worldToModel),
           normal: snap.normal?.clone().applyNormalMatrix(normalMatrix).normalize() || null,
           source: "snap-" + snap.type,
           label: snap.label,
-        });
-        return;
+        };
       }
     }
 
-    if (!this.setRaycasterFromPointerEvent(event)) return;
+    if (!this.setRaycasterFromPointerEvent(event)) return null;
     this.modelRoot.updateMatrixWorld(true);
     const worldScale = this.modelRoot.getWorldScale(new THREE.Vector3());
     this.raycaster.params.Points.threshold =
@@ -3464,8 +3481,7 @@ class ThreeViewport {
       nearestSurface && (!nearestPoint || nearestSurface.distance <= nearestPoint.distance);
 
     if (this.selectionConfig.method === "tangent" && !nearestSurface) {
-      showToast("Tangent Plane requires a mesh surface. Use Planar Surface for point clouds.");
-      return;
+      return null;
     }
 
     let reference = null;
@@ -3480,19 +3496,12 @@ class ThreeViewport {
       reference = this.getPointCloudSelection(nearestPoint);
     }
 
-    if (!reference) {
-      showToast(
-        this.selectionConfig.method === "planar-surface"
-          ? "No model surface or point was found under the pointer."
-          : "No model vertex was found under the pointer.",
-      );
-      return;
-    }
+    if (!reference) return null;
     if (this.selectionConfig.method === "planar-surface") {
       Object.assign(reference, this.getPlanarSurfaceViewHints());
     }
 
-    this.addConstructionReference(reference);
+    return reference;
   }
 
   getReferencePlanes() {
@@ -3552,8 +3561,8 @@ class ThreeViewport {
     return { ...plane, origin, ...basis, space: targetSpace };
   }
 
-  getSelectedPointsInSpace(targetSpace) {
-    return this.selectionReferences.map((reference) =>
+  getSelectedPointsInSpace(targetSpace, references = this.selectionReferences) {
+    return references.map((reference) =>
       this.transformPointBetweenSpaces(reference.point, "model", targetSpace),
     );
   }
@@ -4545,50 +4554,32 @@ class ThreeViewport {
     return definitions.length;
   }
 
-  createPlaneFromMethod(method, options) {
-    const selected = this.selectionReferences;
-    const create = (definition) =>
-      this.createConstructionPlane({
-        name: options.name,
-        space: "model",
-        ...definition,
-      });
-
-    if (method === "bounds") {
-      return this.createBoundsPlanes(
-        options.boundsSet,
-        options.name,
-        options.boundsOrientation,
-      );
-    }
-    if (method === "auto-axes") {
-      return this.createAutomaticCenterPlanes(options.name);
-    }
-
+  getManualPlaneDefinition(method, options, selected = this.selectionReferences) {
+    let definition;
     if (method === "three-points") {
       const [first, second, third] = selected.map((reference) => reference.point);
       const xAxis = second.clone().sub(first);
       const normal = xAxis.clone().cross(third.clone().sub(first));
       const origin = first.clone().add(second).add(third).multiplyScalar(1 / 3);
-      create({ method: "Through 3 Points", origin, normal, xAxis });
+      definition = { method: "Through 3 Points", origin, normal, xAxis };
     } else if (method === "best-fit") {
       const fitted = fitPlaneToPoints(selected.map((reference) => reference.point));
-      create({ method: "Best Fit", ...fitted });
+      definition = { method: "Best Fit", ...fitted };
     } else if (method === "planar-surface") {
       const [reference] = selected;
       const fitted = this.fitPlanarSurfaceReference(reference);
-      create({ method: "Planar Surface", ...fitted });
+      definition = { method: "Planar Surface", ...fitted };
     } else if (method === "tangent") {
       const [reference] = selected;
       if (!reference?.normal) {
         throw new Error("Choose a triangle on a mesh surface.");
       }
-      create({
+      definition = {
         method: "Tangent",
         origin: reference.point,
         normal: reference.normal,
         xAxis: createFallbackAxis(reference.normal),
-      });
+      };
     } else if (method === "two-edges") {
       const [first, second, third, fourth] = selected.map((reference) => reference.point);
       const firstDirection = second.clone().sub(first);
@@ -4605,27 +4596,27 @@ class ThreeViewport {
         }
       }
       const origin = first.clone().add(second).add(third).add(fourth).multiplyScalar(0.25);
-      create({ method: "Through 2 Edges", origin, normal, xAxis: firstDirection });
+      definition = { method: "Through 2 Edges", origin, normal, xAxis: firstDirection };
     } else if (method === "along-path") {
       const [first, second] = selected.map((reference) => reference.point);
       const direction = second.clone().sub(first);
       const fraction = THREE.MathUtils.clamp(options.pathPosition / 100, 0, 1);
       const origin = first.clone().lerp(second, fraction);
-      create({
+      definition = {
         method: "Along Path",
         origin,
         normal: direction,
         xAxis: createFallbackAxis(direction.clone().normalize()),
-      });
+      };
     } else if (method === "offset") {
       const reference = this.getReferencePlane(options.referenceA);
-      create({
+      definition = {
         method: "Offset",
         origin: reference.origin.clone().addScaledVector(reference.normal, options.distance),
         normal: reference.normal,
         xAxis: reference.xAxis,
         space: reference.space,
-      });
+      };
     } else if (method === "midplane") {
       const firstReference = this.getReferencePlane(options.referenceA);
       const secondReference = this.getReferencePlane(options.referenceB);
@@ -4638,45 +4629,59 @@ class ThreeViewport {
         throw new Error("Midplane requires two parallel reference planes.");
       }
       const signedDistance = second.origin.clone().sub(first.origin).dot(first.normal);
-      create({
+      definition = {
         method: "Midplane",
         origin: first.origin.clone().addScaledVector(first.normal, signedDistance / 2),
         normal: first.normal,
         xAxis: first.xAxis,
         space: targetSpace,
-      });
+      };
     } else if (method === "angle") {
       const reference = this.getReferencePlane(options.referenceA);
-      const points = this.getSelectedPointsInSpace(reference.space);
+      const points = this.getSelectedPointsInSpace(reference.space, selected);
       const axis = points[1].clone().sub(points[0]);
       if (axis.lengthSq() <= GEOMETRY_EPSILON ** 2) {
         throw new Error("Choose two different points for the rotation axis.");
       }
       axis.normalize();
       const angle = THREE.MathUtils.degToRad(options.angle);
-      create({
+      definition = {
         method: "At Angle",
         origin: points[0],
         normal: reference.normal.clone().applyAxisAngle(axis, angle),
         xAxis: reference.xAxis.clone().applyAxisAngle(axis, angle),
         space: reference.space,
-      });
+      };
     } else if (method === "perpendicular") {
       const reference = this.getReferencePlane(options.referenceA);
-      const points = this.getSelectedPointsInSpace(reference.space);
+      const points = this.getSelectedPointsInSpace(reference.space, selected);
       const line = points[1].clone().sub(points[0]);
       const normal = line.clone().cross(reference.normal);
-      create({
+      definition = {
         method: "Perpendicular",
         origin: points[0],
         normal,
         xAxis: line,
         space: reference.space,
-      });
+      };
     } else {
       throw new Error("Choose a construction plane method.");
     }
 
+    const origin = definition.origin.clone();
+    if (![...origin, ...definition.normal, ...definition.xAxis].every(Number.isFinite)) {
+      throw new Error("Enter finite parameters and choose valid references.");
+    }
+    return { ...definition, origin, ...normalizePlaneBasis(definition.normal, definition.xAxis), space: definition.space || "model" };
+  }
+
+  createPlaneFromMethod(method, options) {
+    if (method === "bounds") {
+      return this.createBoundsPlanes(options.boundsSet, options.name, options.boundsOrientation);
+    }
+    if (method === "auto-axes") return this.createAutomaticCenterPlanes(options.name);
+    const definition = this.getManualPlaneDefinition(method, options);
+    this.createConstructionPlane({ ...definition, name: options.name });
     this.clearConstructionSelection();
     return 1;
   }
@@ -5783,6 +5788,10 @@ let smartMethodExplicit = false;
 let smartAnalysisReferences = [];
 let smartCandidates = [];
 let smartSelectionHint = "Pick surfaces, edges, points, or reference planes.";
+let manualPreviewPaused = false;
+let manualHoverTimer = 0;
+let manualHoverActive = false;
+const manualPreviewStatus = document.querySelector("#manualPlanePreviewStatus");
 const smartSurfaceCache = new WeakMap();
 const smartLocalFitCache = new WeakMap();
 const smartToolbar = document.querySelector("#smartPlaneToolbar");
@@ -5860,7 +5869,7 @@ function updateSmartPlaneUi() {
   const enabled = !planeWorkbench.hidden && activePlaneMethod === "smart-pick";
   smartToolbar.hidden = !enabled;
   smartToolbar.closest(".view-toolbar").classList.toggle("is-plane-picking", enabled);
-  if (!enabled || !viewport) { viewport?.setSmartPlanePreview(null); return; }
+  if (!enabled || !viewport) { viewport?.setPlanePreview(null); return; }
   const references = viewport.selectionReferences;
   const changed = references.length !== smartAnalysisReferences.length ||
     references.some((reference, index) => reference !== smartAnalysisReferences[index]);
@@ -5947,7 +5956,7 @@ function updateSmartPlaneUi() {
         : plane.method + " — ready to create. Keep picking to change the construction.";
     } catch (error) { smartStatus.textContent = error.message; }
   }
-  viewport.setSmartPlanePreview(smartPlaneDefinition);
+  viewport.setPlanePreview(smartPlaneDefinition);
   const summary = references.map((reference) => reference.label || reference.kind || "point").join(", ");
   selectionCount.textContent = references.length + (references.length === 1 ? " reference: " : " references: ") + summary;
   document.querySelector("#smartToolbarStatus").textContent = (references.length ? references.length + " picked · " : "") + smartStatus.textContent;
@@ -6274,6 +6283,7 @@ function updateLeftRailWorkbench() {
 
 function setPlaneWorkbenchOpen(isOpen) {
   if (isOpen) {
+    manualPreviewPaused = false;
     closeLayFlatWorkbench();
     closeInspectWorkbench();
     closeAlignmentWorkbenches(true);
@@ -6286,7 +6296,7 @@ function setPlaneWorkbenchOpen(isOpen) {
   const method = PLANE_METHODS[activePlaneMethod];
   viewport?.configureConstructionSelection(isOpen, activePlaneMethod, method.maximum);
   if (!isOpen) viewport?.clearConstructionSelection();
-  updateSmartPlaneUi();
+  updatePlaneCreateState();
   updateTransformGizmoVisibility();
   updateModelCenterUi();
 }
@@ -6309,6 +6319,7 @@ function populatePlaneReferences() {
     planeReferenceB.value = references[1].id;
   }
   populateSmartReferencePlanes();
+  if (activePlaneMode === "manual") updatePlaneCreateState();
 }
 
 function updateBoundsReadout() {
@@ -6330,14 +6341,106 @@ function updateBoundsReadout() {
     formatCoordinate(info.size.z);
 }
 
-function updatePlaneCreateState() {
-  if (activePlaneMethod === "smart-pick") { updateSmartPlaneUi(); return; }
+function getPlaneCreationOptions() {
+  return {
+    name: planeNameInput.value,
+    referenceA: planeReferenceA.value,
+    referenceB: planeReferenceB.value,
+    distance: planeDistance.valueAsNumber,
+    angle: planeAngle.valueAsNumber,
+    pathPosition: pathPosition.valueAsNumber,
+    boundsSet: boundsPlaneSet.value,
+    boundsOrientation: boundsOrientation.value,
+  };
+}
+
+function updateManualPlanePreview(hoverReference = null) {
+  const active = !planeWorkbench.hidden && activePlaneMode === "manual";
+  manualPreviewStatus.hidden = !active;
+  if (!active || !viewport) {
+    viewport?.setPlanePreview(null);
+    if (active) createPlaneButton.disabled = true;
+    return;
+  }
   const method = PLANE_METHODS[activePlaneMethod];
-  const hasEnoughReferences = selectedReferenceCount >= method.minimum;
-  createPlaneButton.disabled = !viewport || !hasEnoughReferences;
+  const selected = viewport.selectionReferences;
+  const options = getPlaneCreationOptions();
+  const build = (references) => {
+    if (method.distance && !Number.isFinite(options.distance)) throw new Error("Enter a finite offset distance.");
+    if (method.angle && !Number.isFinite(options.angle)) throw new Error("Enter a finite angle in degrees.");
+    if (method.pathPosition && !Number.isFinite(options.pathPosition)) throw new Error("Enter a finite path position.");
+    return viewport.getManualPlaneDefinition(activePlaneMethod, options, references);
+  };
+  let definition = null, error = null, provisional = null, hoverError = null;
+  if (selected.length >= method.minimum) {
+    try { definition = build(selected); } catch (failure) { error = failure; }
+  }
+  const tolerance = viewport.getConstructionVisualScale() * 1e-7;
+  const canAddHover = hoverReference && selected.length < method.maximum &&
+    !selected.some((reference) => reference.point.distanceTo(hoverReference.point) <= tolerance);
+  if (canAddHover && selected.length + 1 >= method.minimum) {
+    try { provisional = build([...selected, hoverReference]); } catch (failure) { hoverError = failure; }
+  }
+  viewport.setPlanePreview(provisional || (manualPreviewPaused ? null : definition));
+  // A hover is provisional: it must be clicked before it can be saved.
+  createPlaneButton.disabled = !definition;
+  if (provisional) {
+    manualPreviewStatus.dataset.state = "hover";
+    manualPreviewStatus.textContent = "Preview from hovered reference · Click the model to add it.";
+  } else if (hoverError || error) {
+    manualPreviewStatus.dataset.state = "error";
+    manualPreviewStatus.textContent = (hoverError || error).message + (definition ? " The selected plane is unchanged." : "");
+  } else if (definition) {
+    manualPreviewStatus.dataset.state = manualPreviewPaused ? "saved" : "ready";
+    manualPreviewStatus.textContent = manualPreviewPaused
+      ? "Plane created. Change parameters or references to preview another."
+      : "Preview only · " + definition.method + ". Choose Create Plane to save.";
+  } else {
+    manualPreviewStatus.dataset.state = "waiting";
+    manualPreviewStatus.textContent = "Preview appears when the required references are selected. " + method.instruction;
+  }
+}
+
+function scheduleManualPlaneHover(event) {
+  window.clearTimeout(manualHoverTimer);
+  const method = PLANE_METHODS[activePlaneMethod];
+  if (!event || planeWorkbench.hidden || activePlaneMode !== "manual" ||
+      viewport.selectionReferences.length >= method.maximum ||
+      viewport.selectionReferences.length + 1 < method.minimum) {
+    if (manualHoverActive) {
+      manualHoverActive = false;
+      if (!planeWorkbench.hidden && activePlaneMode === "manual") updateManualPlanePreview();
+    }
+    return;
+  }
+  // Surface fitting can scan a large model. Wait for a short pointer pause.
+  manualHoverTimer = window.setTimeout(() => {
+    const reference = viewport.getManualConstructionReference(event);
+    manualHoverActive = Boolean(reference);
+    updateManualPlanePreview(reference);
+    viewport.showSnapPreview(reference ? {
+      point: viewport.transformPointBetweenSpaces(reference.point, "model", "world"),
+      label: reference.label || "Preview reference",
+    } : null, event);
+  }, 100);
+}
+
+function updatePlaneCreateState() {
+  window.clearTimeout(manualHoverTimer);
+  manualHoverActive = false;
+  updateSmartPlaneUi();
+  if (activePlaneMethod === "smart-pick") {
+    manualPreviewStatus.hidden = true;
+    return;
+  }
+  if (activePlaneMode === "manual") { updateManualPlanePreview(); return; }
+  manualPreviewStatus.hidden = true;
+  const method = PLANE_METHODS[activePlaneMethod];
+  createPlaneButton.disabled = !viewport || selectedReferenceCount < method.minimum;
 }
 
 function updateSelectionUi(references = []) {
+  manualPreviewPaused = false;
   selectedReferenceCount = references.length;
   const method = PLANE_METHODS[activePlaneMethod];
   if (method.maximum === 0) {
@@ -6450,7 +6553,6 @@ function updatePlaneMethodUi() {
     method.maximum,
   );
   updateSelectionUi(viewport?.selectionReferences || []);
-  updateSmartPlaneUi();
 }
 
 function updatePlaneModeUi() {
@@ -6546,6 +6648,13 @@ clearCreatedPlanesButton.addEventListener("click", () => {
   recordEdit("Clear construction planes", beforeState);
 });
 boundsOrientation.addEventListener("change", updatePlaneMethodUi);
+planeWorkbench.addEventListener("focusin", () => scheduleManualPlaneHover(null));
+for (const input of [planeDistance, planeAngle, pathPosition]) {
+  input.addEventListener("input", () => { manualPreviewPaused = false; updatePlaneCreateState(); });
+}
+for (const select of [planeReferenceA, planeReferenceB]) {
+  select.addEventListener("change", () => { manualPreviewPaused = false; updatePlaneCreateState(); });
+}
 
 createPlaneButton.addEventListener("click", () => {
   if (!viewport) return;
@@ -6560,6 +6669,7 @@ createPlaneButton.addEventListener("click", () => {
     showToast("Construction plane created.");
     return;
   }
+  if (activePlaneMode === "manual") scheduleManualPlaneHover(null);
   const method = PLANE_METHODS[activePlaneMethod];
   if (selectedReferenceCount < method.minimum) {
     showToast("Select the required model references first.");
@@ -6580,16 +6690,11 @@ createPlaneButton.addEventListener("click", () => {
 
   try {
     const beforeState = captureEditState();
-    const createdCount = viewport.createPlaneFromMethod(activePlaneMethod, {
-      name: planeNameInput.value,
-      referenceA: planeReferenceA.value,
-      referenceB: planeReferenceB.value,
-      distance,
-      angle,
-      pathPosition: pathPercent,
-      boundsSet: boundsPlaneSet.value,
-      boundsOrientation: boundsOrientation.value,
-    });
+    const createdCount = viewport.createPlaneFromMethod(activePlaneMethod, getPlaneCreationOptions());
+    if (activePlaneMode === "manual") {
+      manualPreviewPaused = true;
+      updateManualPlanePreview();
+    }
     recordEdit(
       createdCount === 1 ? "Create construction plane" : "Create " + createdCount + " planes",
       beforeState,
@@ -7457,6 +7562,7 @@ repickSnapTargetButton.addEventListener("click", resetSnapAlignmentTarget);
 
 if (viewport) {
   viewport.onSelectionChange = handleConstructionSelectionChange;
+  viewport.onConstructionReferenceHover = scheduleManualPlaneHover;
   viewport.onPlanesChange = renderCreatedPlanes;
   viewport.onModelCenterChange = (info) => {
     updateModelCenterUi(info);
