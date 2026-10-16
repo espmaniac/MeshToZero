@@ -1374,7 +1374,6 @@ input:checked + .toggle-track,
 .smart-plane-toolbar[hidden], .smart-plane-toolbar [hidden] { display: none; }
 .smart-plane-toolbar {
   display: grid; gap: 6px; width: 100%; min-width: 0;
-  padding-bottom: 6px; border-bottom: 1px solid #434343;
 }
 .smart-plane-actions { display: flex; align-items: center; gap: 6px; overflow-x: auto; white-space: nowrap; }
 #smartToolbarStatus { color: #eeeeee; font-size: 11px; line-height: 1.4; }
@@ -1395,11 +1394,12 @@ input:checked + .toggle-track,
 }
 
 .view-navigation { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.view-toolbar.is-plane-picking .view-navigation { display: none; }
 .view-toolbar.is-plane-picking {
   top: auto; bottom: calc(var(--cad-statusbar-height) + 12px);
   display: flex; flex-direction: column; gap: 4px; height: auto;
   width: min(760px, calc(100% - var(--cad-left-width) - var(--cad-inspector-width) - 20px));
-  padding: 10px 14px 4px; border-radius: 22px;
+  padding: 10px 14px; border-radius: 22px;
 }
 @media (max-width: 700px), (max-width: 900px) and (max-height: 500px) {
   .view-toolbar.is-plane-picking {
@@ -1408,9 +1408,9 @@ input:checked + .toggle-track,
   }
   #smartToolbarStatus { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .workspace:has(.view-toolbar.is-plane-picking) .right-rail {
-    bottom: calc(184px + env(safe-area-inset-bottom));
+    bottom: calc(144px + env(safe-area-inset-bottom));
   }
   .workspace:has(.view-toolbar.is-plane-picking) .coordinate-dock .view-cube {
-    bottom: calc(188px + env(safe-area-inset-bottom));
+    bottom: calc(148px + env(safe-area-inset-bottom));
   }
 }
