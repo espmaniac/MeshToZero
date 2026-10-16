@@ -1,3 +1,4 @@
+import { inferPickedPlane } from "./smart-plane.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
@@ -1645,6 +1646,10 @@ class ThreeViewport {
       { capture: true },
     );
     this.canvas.addEventListener("pointermove", (event) => {
+      if (this.selectionConfig.enabled && this.selectionConfig.method === "smart-pick" && event.buttons === 0) {
+        this.updateSmartHover(event);
+        return;
+      }
       if (this.snapAlignmentPicking.enabled && event.buttons === 0) {
         this.showSnapPreview(this.getSnapAlignmentCandidate(event), event);
       } else if (this.alignmentPlanePicking.enabled && event.buttons === 0) {
@@ -1664,6 +1669,7 @@ class ThreeViewport {
     });
     this.canvas.addEventListener("pointerleave", () => {
       this.setAlignmentPlaneHover(null);
+      this.clearSmartHover();
       this.clearSnapPreview();
     });
     this.canvas.addEventListener("contextmenu", (event) => event.preventDefault());
@@ -2425,6 +2431,11 @@ class ThreeViewport {
   }
 
   configureConstructionSelection(enabled, method, maximumReferences) {
+    if (!enabled || method !== "smart-pick") {
+      this.setSmartPlanePreview(null);
+      this.clearSmartHover();
+      this.clearSnapPreview();
+    }
     this.selectionConfig = {
       enabled: Boolean(enabled && maximumReferences > 0),
       method,
@@ -3086,6 +3097,9 @@ class ThreeViewport {
   }
 
   clearConstructionSelection() {
+    this.setSmartPlanePreview(null);
+    this.clearSmartHover();
+    this.clearSnapPreview();
     while (this.selectionGroup.children.length) {
       this.disposeObject3D(this.selectionGroup.children[0]);
     }
@@ -3093,7 +3107,11 @@ class ThreeViewport {
     this.notifySelectionChange();
   }
 
-  addSelectionMarker(point) {
+  addSelectionMarker(point, edge = null) {
+    if (edge) {
+      this.selectionGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(edge),
+        new THREE.LineBasicMaterial({ color: 0xffcc33, depthTest: false })));
+    }
     const markerRadius = this.getConstructionVisualScale() * 0.014;
     const geometry = new THREE.SphereGeometry(markerRadius, 18, 12);
     const material = new THREE.MeshBasicMaterial({
@@ -3118,7 +3136,10 @@ class ThreeViewport {
     const duplicateTolerance = this.getConstructionVisualScale() * 1e-7;
     if (
       this.selectionReferences.some(
-        (selected) => selected.point.distanceTo(reference.point) <= duplicateTolerance,
+        (selected) => reference.edge && selected.edge
+          ? (selected.edge[0].distanceTo(reference.edge[0]) <= duplicateTolerance && selected.edge[1].distanceTo(reference.edge[1]) <= duplicateTolerance) ||
+            (selected.edge[0].distanceTo(reference.edge[1]) <= duplicateTolerance && selected.edge[1].distanceTo(reference.edge[0]) <= duplicateTolerance)
+          : !reference.edge && !selected.edge && selected.point.distanceTo(reference.point) <= duplicateTolerance,
       )
     ) {
       showToast("That reference is already selected.");
@@ -3133,7 +3154,7 @@ class ThreeViewport {
       xAxisHint: reference.xAxisHint?.clone() || null,
     };
     this.selectionReferences.push(storedReference);
-    this.addSelectionMarker(storedReference.point);
+    this.addSelectionMarker(storedReference.point, storedReference.edge);
     this.notifySelectionChange();
     return true;
   }
@@ -3264,7 +3285,88 @@ class ThreeViewport {
     );
   }
 
+  clearSmartHover() {
+    if (this.smartHoverVisual) this.disposeObject3D(this.smartHoverVisual);
+    this.smartHoverVisual = null;
+  }
+
+  setSmartPlanePreview(plane) {
+    if (this.smartPlanePreview) this.disposeObject3D(this.smartPlanePreview);
+    this.smartPlanePreview = null;
+    if (!plane) return;
+    const basis = normalizePlaneBasis(plane.normal, plane.xAxis);
+    this.smartPlanePreview = this.createPlaneVisual({ ...plane, ...basis, space: "model" }, 0x2386ff);
+    this.smartPlanePreview.name = "Picked plane preview";
+    this.constructionModelGroup.add(this.smartPlanePreview);
+  }
+
+  undoSmartPick() {
+    this.selectionReferences.pop();
+    while (this.selectionGroup.children.length) this.disposeObject3D(this.selectionGroup.children[0]);
+    for (const reference of this.selectionReferences) this.addSelectionMarker(reference.point, reference.edge);
+    this.notifySelectionChange();
+  }
+
+  getSmartPick(event) {
+    if (!this.renderModel || !this.setRaycasterFromPointerEvent(event)) return null;
+    this.scene.updateMatrixWorld(true);
+    const scale = this.modelRoot.getWorldScale(new THREE.Vector3()).length();
+    const tolerance = this.getConstructionVisualScale() * scale * 0.02;
+    this.raycaster.params.Line.threshold = tolerance;
+    this.raycaster.params.Points.threshold = tolerance;
+    const surface = this.raycaster.intersectObjects(this.renderModel.surfaceGroup.children, false)[0];
+    const cloud = this.raycaster.intersectObjects(this.renderModel.pointCloudGroup.children, false)[0];
+    const edgeHit = this.raycaster.intersectObjects(this.renderModel.edgeGroup.children, false)
+      .find((hit) => !surface || hit.distance <= surface.distance + tolerance);
+    const edge = this.getEdgeHitSegment(edgeHit);
+    const triangle = this.getTriangleWorldPoints(surface);
+    const inverse = this.modelRoot.matrixWorld.clone().invert();
+    const filter = this.smartPickFilter || "auto";
+    if (filter === "auto" || filter === "point") {
+      const candidates = [...triangle, ...(edge || [])];
+      if (cloud && (!surface || cloud.distance < surface.distance)) candidates.push(cloud.point);
+      candidates.sort((a, b) => this.getSnapScreenDistance(a, event) - this.getSnapScreenDistance(b, event));
+      const point = candidates.find((candidate) => this.getSnapScreenDistance(candidate, event) <= SNAP_PIXEL_TOLERANCE);
+      if (point) return { kind: "point", point: point.clone().applyMatrix4(inverse), worldPoint: point, label: "Point", source: "smart-point" };
+    }
+    if ((filter === "auto" || filter === "edge") && edge && this.getSnapScreenDistance(edgeHit.point, event) <= SNAP_PIXEL_TOLERANCE) {
+      return { kind: "edge", point: edgeHit.point.clone().applyMatrix4(inverse),
+        edge: edge.map((point) => point.clone().applyMatrix4(inverse)), worldPoint: edgeHit.point,
+        outline: edge, label: "Edge", source: "smart-edge" };
+    }
+    if (filter === "edge") return null;
+    if (surface) {
+      const reference = this.getSurfaceSelection(surface, true);
+      const usePoint = filter === "point" || (filter === "auto" && this.selectionReferences.length > 0);
+      return { ...reference, ...this.getPlanarSurfaceViewHints(), kind: usePoint ? "point" : "surface",
+        worldPoint: surface.point, outline: usePoint ? null : [...triangle, triangle[0]],
+        label: usePoint ? "Point on surface" : "Surface", source: "smart-pick" };
+    }
+    if (cloud) return { ...this.getPointCloudSelection(cloud), ...this.getPlanarSurfaceViewHints(),
+      kind: filter === "surface" ? "surface" : "point", worldPoint: cloud.point,
+      label: filter === "surface" ? "Point-cloud surface" : "Point" };
+    return null;
+  }
+
+  updateSmartHover(event) {
+    const reference = this.getSmartPick(event);
+    this.clearSmartHover();
+    this.showSnapPreview(reference ? { point: reference.worldPoint, label: reference.label } : null, event);
+    if (reference?.outline) {
+      this.smartHoverVisual = new THREE.Line(new THREE.BufferGeometry().setFromPoints(reference.outline),
+        new THREE.LineBasicMaterial({ color: 0xffcc33, depthTest: false }));
+      this.smartHoverVisual.renderOrder = 25;
+      this.scene.add(this.smartHoverVisual);
+    }
+  }
+
   pickConstructionReference(event) {
+    if (this.selectionConfig.enabled && this.selectionConfig.method === "smart-pick") {
+      const reference = this.getSmartPick(event);
+      if (reference) this.addConstructionReference(reference);
+      else showToast("No matching geometry here. Try another pick filter.");
+      return;
+    }
     if (!this.renderModel || !this.selectionConfig.enabled) return;
     if (this.selectionReferences.length >= this.selectionConfig.max) {
       showToast("Reference limit reached. Clear the selection to choose again.");
@@ -5393,6 +5495,11 @@ document.addEventListener("pointerdown", (event) => {
 });
 
 const PLANE_MODES = {
+  pick: {
+    label: "Pick from model",
+    description: "Pick a surface, edges, or points. Preview the detected plane before saving.",
+    defaultMethod: "smart-pick",
+  },
   automatic: {
     label: "Automatic",
     description: "Create planes from the complete model automatically.",
@@ -5406,6 +5513,7 @@ const PLANE_MODES = {
 };
 
 const PLANE_METHODS = {
+  "smart-pick": { mode: "pick", minimum: 1, maximum: 3, description: "The construction follows your selected geometry.", instruction: "Pick a surface, an edge, or three points." },
   "three-points": {
     mode: "manual",
     description: "Creates an exact plane through three non-collinear model vertices.",
@@ -5617,8 +5725,64 @@ const repickSnapTargetButton = document.querySelector("#repickSnapTarget");
 const activePlaneMethods = Object.fromEntries(
   Object.entries(PLANE_MODES).map(([mode, config]) => [mode, config.defaultMethod]),
 );
-let activePlaneMode = "automatic";
+let activePlaneMode = "pick";
 let activePlaneMethod = activePlaneMethods[activePlaneMode];
+let smartPlaneDefinition = null;
+let smartPlaneFlipped = false;
+const smartToolbar = document.querySelector("#smartPlaneToolbar");
+const smartStatus = document.querySelector("#smartPlaneStatus");
+const smartOffset = document.querySelector("#smartPlaneOffset");
+const smartSurfaceMode = document.querySelector("#smartSurfaceMode");
+const smartFlip = document.querySelector("#smartPlaneFlip");
+const smartUndo = document.querySelector("#smartPlaneUndo");
+const smartClear = document.querySelector("#smartPlaneClear");
+const smartSave = document.querySelector("#smartPlaneSave");
+function updateSmartPlaneUi() {
+  const enabled = !planeWorkbench.hidden && activePlaneMethod === "smart-pick";
+  smartToolbar.hidden = !enabled;
+  if (!enabled || !viewport) { viewport?.setSmartPlanePreview(null); return; }
+  const references = viewport.selectionReferences;
+  if (!references.length) { smartPlaneFlipped = false; smartOffset.value = "0"; smartSurfaceMode.value = "planar-surface"; }
+  smartSurfaceMode.parentElement.hidden = references.length !== 1 || references[0].kind !== "surface";
+  smartUndo.disabled = smartClear.disabled = !references.length;
+  smartFlip.setAttribute("aria-pressed", String(smartPlaneFlipped));
+  smartPlaneDefinition = null;
+  try {
+    const plane = inferPickedPlane(references, {
+      surfaceMode: smartSurfaceMode.value,
+      fitSurface: (reference) => viewport.fitPlanarSurfaceReference(reference),
+      fitPoints: (reference) => fitPlaneToPoints(viewport.getNearestModelVertices(reference.point, 32)),
+    });
+    const offset = smartOffset.valueAsNumber;
+    if (!Number.isFinite(offset)) throw new Error("Enter a finite offset in model units.");
+    plane.normal = plane.normal.clone().normalize().multiplyScalar(smartPlaneFlipped ? -1 : 1);
+    plane.origin = plane.origin.clone().addScaledVector(plane.normal, offset);
+    viewport.setSmartPlanePreview(plane);
+    smartPlaneDefinition = plane;
+    smartStatus.textContent = plane.method + " — ready to create.";
+  } catch (error) {
+    viewport.setSmartPlanePreview(null);
+    smartStatus.textContent = error.message;
+  }
+  document.querySelector("#smartToolbarStatus").textContent = smartStatus.textContent;
+  selectionInstruction.textContent = smartStatus.textContent;
+  selectionCount.textContent = references.length + (references.length === 1 ? " reference: " : " references: ") + references.map((r) => r.kind || "point").join(", ");
+  createPlaneButton.disabled = smartSave.disabled = !smartPlaneDefinition;
+  smartFlip.disabled = !smartPlaneDefinition;
+  smartOffset.disabled = !references.length;
+}
+document.querySelector("#smartPickFilter").addEventListener("change", (event) => {
+  viewport.smartPickFilter = event.target.value;
+  viewport.clearSmartHover();
+  viewport.clearSnapPreview();
+});
+smartUndo.addEventListener("click", () => viewport.undoSmartPick());
+smartClear.addEventListener("click", () => viewport.clearConstructionSelection());
+smartFlip.addEventListener("click", () => { smartPlaneFlipped = !smartPlaneFlipped; updateSmartPlaneUi(); });
+smartOffset.addEventListener("input", updateSmartPlaneUi);
+smartSurfaceMode.addEventListener("change", updateSmartPlaneUi);
+smartSave.addEventListener("click", () => createPlaneButton.click());
+
 let selectedReferenceCount = 0;
 let alignmentPreviewSession = null;
 let automaticOrientationCandidates = [];
@@ -5930,6 +6094,7 @@ function setPlaneWorkbenchOpen(isOpen) {
   const method = PLANE_METHODS[activePlaneMethod];
   viewport?.configureConstructionSelection(isOpen, activePlaneMethod, method.maximum);
   if (!isOpen) viewport?.clearConstructionSelection();
+  updateSmartPlaneUi();
   updateTransformGizmoVisibility();
   updateModelCenterUi();
 }
@@ -5973,6 +6138,7 @@ function updateBoundsReadout() {
 }
 
 function updatePlaneCreateState() {
+  if (activePlaneMethod === "smart-pick") { updateSmartPlaneUi(); return; }
   const method = PLANE_METHODS[activePlaneMethod];
   const hasEnoughReferences = selectedReferenceCount >= method.minimum;
   createPlaneButton.disabled = !viewport || !hasEnoughReferences;
@@ -6091,6 +6257,7 @@ function updatePlaneMethodUi() {
     method.maximum,
   );
   updateSelectionUi(viewport?.selectionReferences || []);
+  updateSmartPlaneUi();
 }
 
 function updatePlaneModeUi() {
@@ -6098,6 +6265,7 @@ function updatePlaneModeUi() {
   activePlaneMethod = activePlaneMethods[activePlaneMode];
   planeModeDescription.textContent = mode.description;
   planeMethodGroupLabel.textContent = mode.label + " methods";
+  planeMethodGroupLabel.hidden = planeMethodDescription.hidden = planeModeDescription.hidden = activePlaneMode === "pick";
   modelCenterSection.hidden = activePlaneMode !== "manual";
 
   for (const button of planeModeButtons) {
@@ -6188,6 +6356,17 @@ boundsOrientation.addEventListener("change", updatePlaneMethodUi);
 
 createPlaneButton.addEventListener("click", () => {
   if (!viewport) return;
+  if (activePlaneMethod === "smart-pick") {
+    updateSmartPlaneUi();
+    if (!smartPlaneDefinition) return;
+    const beforeState = captureEditState();
+    viewport.createConstructionPlane({ ...smartPlaneDefinition, name: planeNameInput.value, space: "model" });
+    recordEdit("Create picked plane", beforeState);
+    planeNameInput.value = "";
+    viewport.clearConstructionSelection();
+    showToast("Construction plane created.");
+    return;
+  }
   const method = PLANE_METHODS[activePlaneMethod];
   if (selectedReferenceCount < method.minimum) {
     showToast("Select the required model references first.");
