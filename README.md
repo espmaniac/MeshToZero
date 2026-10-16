@@ -120,7 +120,7 @@ Current model transformations are baked into exported vertex coordinates.
 
 ### Interactive plane picking
 
-Create Plane opens in **Pick from model** mode. Hover over the model to see the next reference, then click a surface, three points, an edge and a point, or two coplanar edges. Feature edges are picked directly; triangle diagonals are not treated as feature edges. The floating toolbar provides geometry filters, Undo pick, Clear, Flip normal, and a signed offset in model millimeters.
+Create Plane opens in **Pick from model** mode. Hover over the model to see the next reference, then click a surface, three points, an edge and a point, or two coplanar edges. Feature edges are picked directly; triangle diagonals are not treated as feature edges. The bottom viewport toolbar provides geometry filters, Undo pick, Clear, Flip normal, and a signed offset in model millimeters.
 
 A valid selection shows a temporary preview. **Create Plane** saves it as construction geometry and adds an undoable history entry. One edge, collinear points, and skew edges remain incomplete or invalid until the selection is corrected. For a single surface, choose Flat area, Tangent, or Local best fit explicitly; a failed flat-area fit never silently switches methods. Point clouds support point picking and Flat area / Local best fit surface sampling, but do not provide tangent normals.
 

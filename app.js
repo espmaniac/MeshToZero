@@ -5740,6 +5740,7 @@ const smartSave = document.querySelector("#smartPlaneSave");
 function updateSmartPlaneUi() {
   const enabled = !planeWorkbench.hidden && activePlaneMethod === "smart-pick";
   smartToolbar.hidden = !enabled;
+  smartToolbar.closest(".view-toolbar").classList.toggle("is-plane-picking", enabled);
   if (!enabled || !viewport) { viewport?.setSmartPlanePreview(null); return; }
   const references = viewport.selectionReferences;
   if (!references.length) { smartPlaneFlipped = false; smartOffset.value = "0"; smartSurfaceMode.value = "planar-surface"; }

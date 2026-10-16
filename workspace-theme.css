@@ -1373,10 +1373,8 @@ input:checked + .toggle-track,
 .plane-mode-switch [data-plane-mode="pick"] { grid-column: 1 / -1; }
 .smart-plane-toolbar[hidden], .smart-plane-toolbar [hidden] { display: none; }
 .smart-plane-toolbar {
-  position: absolute; z-index: 35; top: 148px;
-  left: calc(var(--cad-left-width) + 10px); right: calc(var(--cad-inspector-width) + 10px);
-  display: grid; gap: 6px; padding: 6px;
-  background: #545454; border: 1px solid #434343; border-radius: 8px;
+  display: grid; gap: 6px; width: 100%; min-width: 0;
+  padding-bottom: 6px; border-bottom: 1px solid #434343;
 }
 .smart-plane-actions { display: flex; align-items: center; gap: 6px; overflow-x: auto; white-space: nowrap; }
 #smartToolbarStatus { color: #eeeeee; font-size: 11px; line-height: 1.4; }
@@ -1392,11 +1390,27 @@ input:checked + .toggle-track,
 .smart-plane-toolbar button[aria-pressed="true"] { background: #858585; color: #171717; }
 #smartPlaneStatus { font-size: 12px; color: #eeeeee; }
 @media (max-width: 700px), (max-width: 900px) and (max-height: 500px) {
-  .smart-plane-toolbar { top: calc(160px + env(safe-area-inset-top)); left: 6px; right: 6px; }
   .smart-plane-toolbar button, .smart-plane-toolbar select, .smart-plane-toolbar input { min-height: 40px; }
   .smart-plane-toolbar input { font-size: 16px; }
 }
 
-@media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
-  .smart-plane-toolbar { right: auto; width: min(300px, calc(100% - 356px)); min-width: 154px; }
+.view-navigation { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.view-toolbar.is-plane-picking {
+  top: auto; bottom: calc(var(--cad-statusbar-height) + 12px);
+  display: flex; flex-direction: column; gap: 4px; height: auto;
+  width: min(760px, calc(100% - var(--cad-left-width) - var(--cad-inspector-width) - 20px));
+  padding: 10px 14px 4px; border-radius: 22px;
+}
+@media (max-width: 700px), (max-width: 900px) and (max-height: 500px) {
+  .view-toolbar.is-plane-picking {
+    bottom: calc(48px + env(safe-area-inset-bottom));
+    left: 6px; right: 6px; width: calc(100% - 12px); margin-inline: auto;
+  }
+  #smartToolbarStatus { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .workspace:has(.view-toolbar.is-plane-picking) .right-rail {
+    bottom: calc(184px + env(safe-area-inset-bottom));
+  }
+  .workspace:has(.view-toolbar.is-plane-picking) .coordinate-dock .view-cube {
+    bottom: calc(188px + env(safe-area-inset-bottom));
+  }
 }

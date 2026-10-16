@@ -280,18 +280,6 @@
         </header>
 
         <div class="command-strip" id="commandStrip" aria-label="Model commands"></div>
-        <div class="smart-plane-toolbar" id="smartPlaneToolbar" role="toolbar" aria-label="Plane picking actions" hidden>
-          <div class="smart-plane-actions">
-          <label>Pick <select id="smartPickFilter" aria-label="Pick geometry"><option value="auto">Auto</option><option value="point">Points</option><option value="edge">Edges</option><option value="surface">Surface</option></select></label>
-          <button id="smartPlaneUndo" type="button" title="Undo last pick"><svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg><span>Undo pick</span></button>
-          <button id="smartPlaneClear" type="button">Clear</button>
-          <label hidden>Surface <select id="smartSurfaceMode"><option value="planar-surface">Flat area</option><option value="tangent">Tangent</option><option value="best-fit">Local best fit</option></select></label>
-          <button id="smartPlaneFlip" type="button" aria-pressed="false">Flip normal</button>
-          <label>Offset <input id="smartPlaneOffset" type="number" value="0" step="0.1" aria-label="Plane offset in model millimeters"> mm</label>
-          <button id="smartPlaneSave" type="button">Create Plane</button>
-          </div>
-          <output id="smartToolbarStatus" aria-live="polite"></output>
-        </div>
 
         <div class="model-status" id="modelStatus" aria-live="polite" hidden>
           <span class="status-dot" aria-hidden="true"></span>
@@ -423,7 +411,7 @@
                   <small>Pick references</small>
                 </button>
               </div>
-              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick a surface, an edge, or three points.</p><p class="alignment-hint">Hover to see the reference before picking. Use the floating toolbar to refine the selection. Nothing is saved until you choose Create Plane. Surface offsets use model millimeters.</p></div>
+              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick a surface, an edge, or three points.</p><p class="alignment-hint">Hover to see the reference before picking. Use the bottom viewport toolbar to refine the selection. Nothing is saved until you choose Create Plane. Surface offsets use model millimeters.</p></div>
               <p class="plane-mode-description" id="planeModeDescription">Create planes from the complete model automatically.</p>
             </section>
 
@@ -1074,31 +1062,45 @@
         </div>
 
         <div class="view-toolbar" role="toolbar" aria-label="Viewport controls">
-          <div class="history-actions" role="group" aria-label="Edit history">
-            <button class="history-button" id="undoButton" type="button" aria-label="Nothing to undo" title="Nothing to undo" disabled>
-              <svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg>
+          <div class="smart-plane-toolbar" id="smartPlaneToolbar" role="group" aria-label="Plane picking actions" hidden>
+            <div class="smart-plane-actions">
+              <label>Pick <select id="smartPickFilter" aria-label="Pick geometry"><option value="auto">Auto</option><option value="point">Points</option><option value="edge">Edges</option><option value="surface">Surface</option></select></label>
+              <button id="smartPlaneUndo" type="button" title="Undo last pick"><svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg><span>Undo pick</span></button>
+              <button id="smartPlaneClear" type="button">Clear</button>
+              <label hidden>Surface <select id="smartSurfaceMode"><option value="planar-surface">Flat area</option><option value="tangent">Tangent</option><option value="best-fit">Local best fit</option></select></label>
+              <button id="smartPlaneFlip" type="button" aria-pressed="false">Flip normal</button>
+              <label>Offset <input id="smartPlaneOffset" type="number" value="0" step="0.1" aria-label="Plane offset in model millimeters"> mm</label>
+              <button id="smartPlaneSave" type="button">Create Plane</button>
+            </div>
+            <output id="smartToolbarStatus" aria-live="polite"></output>
+          </div>
+          <div class="view-navigation" role="group" aria-label="View navigation">
+            <div class="history-actions" role="group" aria-label="Edit history">
+              <button class="history-button" id="undoButton" type="button" aria-label="Nothing to undo" title="Nothing to undo" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg>
+              </button>
+              <button class="history-button" id="redoButton" type="button" aria-label="Nothing to redo" title="Nothing to redo" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#icon-redo"></use></svg>
+              </button>
+            </div>
+            <span class="toolbar-divider" aria-hidden="true"></span>
+            <button class="view-button" type="button" data-view-help="orbit" aria-label="Orbit with the middle mouse button">
+              <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
             </button>
-            <button class="history-button" id="redoButton" type="button" aria-label="Nothing to redo" title="Nothing to redo" disabled>
-              <svg class="icon" aria-hidden="true"><use href="#icon-redo"></use></svg>
+            <button class="view-button" type="button" data-view-help="pan" aria-label="Pan with the right mouse button">
+              <svg class="icon" aria-hidden="true"><use href="#icon-hand"></use></svg>
+            </button>
+            <span class="toolbar-divider" aria-hidden="true"></span>
+            <button class="view-button" type="button" data-view-action="zoom-in" aria-label="Zoom in">
+              <svg class="icon" aria-hidden="true"><use href="#icon-zoom-in"></use></svg>
+            </button>
+            <button class="view-button" type="button" data-view-action="zoom-out" aria-label="Zoom out">
+              <svg class="icon" aria-hidden="true"><use href="#icon-zoom-out"></use></svg>
+            </button>
+            <button class="view-button" type="button" data-view-action="fit" aria-label="Fit model to view">
+              <svg class="icon" aria-hidden="true"><use href="#icon-fit"></use></svg>
             </button>
           </div>
-          <span class="toolbar-divider" aria-hidden="true"></span>
-          <button class="view-button" type="button" data-view-help="orbit" aria-label="Orbit with the middle mouse button">
-            <svg class="icon" aria-hidden="true"><use href="#icon-orbit"></use></svg>
-          </button>
-          <button class="view-button" type="button" data-view-help="pan" aria-label="Pan with the right mouse button">
-            <svg class="icon" aria-hidden="true"><use href="#icon-hand"></use></svg>
-          </button>
-          <span class="toolbar-divider" aria-hidden="true"></span>
-          <button class="view-button" type="button" data-view-action="zoom-in" aria-label="Zoom in">
-            <svg class="icon" aria-hidden="true"><use href="#icon-zoom-in"></use></svg>
-          </button>
-          <button class="view-button" type="button" data-view-action="zoom-out" aria-label="Zoom out">
-            <svg class="icon" aria-hidden="true"><use href="#icon-zoom-out"></use></svg>
-          </button>
-          <button class="view-button" type="button" data-view-action="fit" aria-label="Fit model to view">
-            <svg class="icon" aria-hidden="true"><use href="#icon-fit"></use></svg>
-          </button>
         </div>
 
         <div class="shortcut-hint" aria-hidden="true">
