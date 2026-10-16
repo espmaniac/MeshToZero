@@ -1,4 +1,4 @@
-import { inferPickedPlane } from "./smart-plane.js";
+import { getPickedPlaneCandidates } from "./smart-plane.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
@@ -3136,7 +3136,9 @@ class ThreeViewport {
     const duplicateTolerance = this.getConstructionVisualScale() * 1e-7;
     if (
       this.selectionReferences.some(
-        (selected) => reference.edge && selected.edge
+        (selected) => reference.kind === "plane" || selected.kind === "plane"
+          ? reference.kind === "plane" && selected.kind === "plane" && reference.planeId === selected.planeId
+          : reference.edge && selected.edge
           ? (selected.edge[0].distanceTo(reference.edge[0]) <= duplicateTolerance && selected.edge[1].distanceTo(reference.edge[1]) <= duplicateTolerance) ||
             (selected.edge[0].distanceTo(reference.edge[1]) <= duplicateTolerance && selected.edge[1].distanceTo(reference.edge[0]) <= duplicateTolerance)
           : !reference.edge && !selected.edge && selected.point.distanceTo(reference.point) <= duplicateTolerance,
@@ -3322,6 +3324,7 @@ class ThreeViewport {
     const triangle = this.getTriangleWorldPoints(surface);
     const inverse = this.modelRoot.matrixWorld.clone().invert();
     const filter = this.smartPickFilter || "auto";
+    if (filter === "plane") return this.getSmartReferencePlanePick();
     if (filter === "auto" || filter === "point") {
       const candidates = [...triangle, ...(edge || [])];
       if (cloud && (!surface || cloud.distance < surface.distance)) candidates.push(cloud.point);
@@ -3337,7 +3340,8 @@ class ThreeViewport {
     if (filter === "edge") return null;
     if (surface) {
       const reference = this.getSurfaceSelection(surface, true);
-      const usePoint = filter === "point" || (filter === "auto" && this.selectionReferences.length > 0);
+      const usePoint = filter === "point" || (filter === "auto" && this.selectionReferences.length > 0 &&
+        !this.selectionReferences.some((selected) => ["surface", "plane"].includes(selected.kind)));
       return { ...reference, ...this.getPlanarSurfaceViewHints(), kind: usePoint ? "point" : "surface",
         worldPoint: surface.point, outline: usePoint ? null : [...triangle, triangle[0]],
         label: usePoint ? "Point on surface" : "Surface", source: "smart-pick" };
@@ -3346,6 +3350,32 @@ class ThreeViewport {
       kind: filter === "surface" ? "surface" : "point", worldPoint: cloud.point,
       label: filter === "surface" ? "Point-cloud surface" : "Point" };
     return null;
+  }
+
+  getSmartPlaneReference(id) {
+    const plane = this.getPlaneInSpace(this.getReferencePlane(id), "model");
+    const worldPoint = this.transformPointBetweenSpaces(plane.origin, "model", "world");
+    return { kind: "plane", planeId: id, plane, point: plane.origin.clone(),
+      normal: plane.normal.clone(), worldPoint, label: plane.name, source: "reference-plane" };
+  }
+
+  getSmartReferencePlanePick() {
+    const constructionObjects = this.constructionPlanes
+      .filter((plane) => plane.visible && plane.object.visible)
+      .flatMap((plane) => plane.object.userData.alignmentHitObjects || []);
+    const grids = Object.values(this.originPlaneGrids)
+      .filter((grid) => grid.group.visible && grid.pickSurface.visible);
+    const hits = this.raycaster.intersectObjects([
+      ...constructionObjects, ...grids.map((grid) => grid.pickSurface),
+    ], false);
+    const hit = hits[0];
+    if (!hit) return null;
+    const targetIds = { z: "world-xy", y: "world-xz", x: "world-yz" };
+    const id = hit.object.userData.alignmentPlaneId || targetIds[hit.object.userData.alignmentTargetId];
+    if (!id) return null;
+    const reference = this.getSmartPlaneReference(id);
+    reference.worldPoint = hit.point.clone();
+    return reference;
   }
 
   updateSmartHover(event) {
@@ -5513,7 +5543,7 @@ const PLANE_MODES = {
 };
 
 const PLANE_METHODS = {
-  "smart-pick": { mode: "pick", minimum: 1, maximum: 3, description: "The construction follows your selected geometry.", instruction: "Pick a surface, an edge, or three points." },
+  "smart-pick": { mode: "pick", minimum: 1, maximum: 32, description: "The construction follows your selected geometry.", instruction: "Pick a surface, an edge, or three points." },
   "three-points": {
     mode: "manual",
     description: "Creates an exact plane through three non-collinear model vertices.",
@@ -5729,60 +5759,187 @@ let activePlaneMode = "pick";
 let activePlaneMethod = activePlaneMethods[activePlaneMode];
 let smartPlaneDefinition = null;
 let smartPlaneFlipped = false;
+let smartSelectedMethod = null;
+let smartMethodExplicit = false;
+let smartAnalysisReferences = [];
+let smartCandidates = [];
+let smartSelectionHint = "Pick surfaces, edges, points, or reference planes.";
+const smartSurfaceCache = new WeakMap();
+const smartLocalFitCache = new WeakMap();
 const smartToolbar = document.querySelector("#smartPlaneToolbar");
 const smartStatus = document.querySelector("#smartPlaneStatus");
+const smartMethods = document.querySelector("#smartPlaneMethods");
 const smartOffset = document.querySelector("#smartPlaneOffset");
-const smartSurfaceMode = document.querySelector("#smartSurfaceMode");
+const smartAngle = document.querySelector("#smartPlaneAngle");
+const smartPathPosition = document.querySelector("#smartPathPosition");
 const smartFlip = document.querySelector("#smartPlaneFlip");
 const smartUndo = document.querySelector("#smartPlaneUndo");
 const smartClear = document.querySelector("#smartPlaneClear");
 const smartSave = document.querySelector("#smartPlaneSave");
+const smartFilter = document.querySelector("#smartPickFilter");
+const smartReferencePlane = document.querySelector("#smartReferencePlane");
+const smartAddReference = document.querySelector("#smartAddReference");
+
+function cachedSmartFit(cache, reference, fit) {
+  if (!cache.has(reference)) {
+    try { cache.set(reference, { plane: fit(reference) }); }
+    catch (error) { cache.set(reference, { error }); }
+  }
+  const result = cache.get(reference);
+  if (result.error) throw result.error;
+  return result.plane;
+}
+
+function resetSmartParameters() {
+  smartPlaneFlipped = false;
+  smartOffset.value = "0";
+  smartAngle.value = "45";
+  smartPathPosition.value = "50";
+}
+
+function renderSmartMethods() {
+  smartMethods.replaceChildren();
+  smartMethods.hidden = !smartCandidates.length;
+  for (const candidate of smartCandidates) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.smartMethod = candidate.id;
+    button.disabled = Boolean(candidate.error);
+    button.title = candidate.error || candidate.label;
+    button.setAttribute("aria-label", candidate.label + (candidate.error ? ": " + candidate.error : ""));
+    button.setAttribute("aria-pressed", String(candidate.id === smartSelectedMethod));
+    button.innerHTML = '<svg class="icon" aria-hidden="true"><use href="' + candidate.icon + '"></use></svg>';
+    const label = document.createElement("span");
+    label.textContent = candidate.label;
+    button.append(label);
+    button.addEventListener("click", () => {
+      if (smartSelectedMethod !== candidate.id) resetSmartParameters();
+      smartSelectedMethod = candidate.id;
+      smartMethodExplicit = true;
+      updateSmartPlaneUi();
+    });
+    smartMethods.append(button);
+  }
+}
+
+function populateSmartReferencePlanes() {
+  const previous = smartReferencePlane.value;
+  smartReferencePlane.replaceChildren();
+  for (const plane of viewport.getReferencePlanes()) {
+    const option = document.createElement("option");
+    option.value = plane.id;
+    option.textContent = plane.name;
+    smartReferencePlane.append(option);
+  }
+  if ([...smartReferencePlane.options].some((option) => option.value === previous)) smartReferencePlane.value = previous;
+}
+
 function updateSmartPlaneUi() {
   const enabled = !planeWorkbench.hidden && activePlaneMethod === "smart-pick";
   smartToolbar.hidden = !enabled;
   smartToolbar.closest(".view-toolbar").classList.toggle("is-plane-picking", enabled);
   if (!enabled || !viewport) { viewport?.setSmartPlanePreview(null); return; }
   const references = viewport.selectionReferences;
-  if (!references.length) { smartPlaneFlipped = false; smartOffset.value = "0"; smartSurfaceMode.value = "planar-surface"; }
-  smartSurfaceMode.parentElement.hidden = references.length !== 1 || references[0].kind !== "surface";
+  const changed = references.length !== smartAnalysisReferences.length ||
+    references.some((reference, index) => reference !== smartAnalysisReferences[index]);
+  if (changed) {
+    smartAnalysisReferences = [...references];
+    // Construct in world space so angles and perpendicularity remain correct
+    // after nonuniform model scaling. Persist the result in model space.
+    const worldReferences = references.map((reference) => ({
+      ...reference,
+      modelReference: reference,
+      point: viewport.transformPointBetweenSpaces(reference.point, "model", "world"),
+      normal: reference.normal ? viewport.transformNormalBetweenSpaces(reference.normal, "model", "world") : null,
+      edge: reference.edge?.map((point) => viewport.transformPointBetweenSpaces(point, "model", "world")),
+      plane: reference.plane ? viewport.getPlaneInSpace(reference.plane, "world") : null,
+    }));
+    const toWorld = (plane) => viewport.getPlaneInSpace({ ...plane, space: "model" }, "world");
+    const analysis = getPickedPlaneCandidates(worldReferences, {
+      fitSurface: ({ modelReference }) => toWorld(cachedSmartFit(smartSurfaceCache, modelReference, (value) => viewport.fitPlanarSurfaceReference(value))),
+      fitLocalPoints: ({ modelReference }) => {
+        const fitted = cachedSmartFit(smartLocalFitCache, modelReference, (value) => fitPlaneToPoints(
+          viewport.getNearestModelVertices(value.point, 32).map((point) => viewport.transformPointBetweenSpaces(point, "model", "world")),
+        ));
+        return fitted;
+      },
+      fitPoints: (points) => fitPlaneToPoints(points),
+    });
+    smartCandidates = analysis.candidates;
+    smartSelectionHint = analysis.hint;
+    const available = smartCandidates.filter((candidate) => !candidate.error);
+    if (!smartMethodExplicit || !available.some((candidate) => candidate.id === smartSelectedMethod)) {
+      const approximateFallback = available.length === 1 && smartCandidates.some((candidate) => candidate.error) &&
+        ["best-fit", "local-best-fit"].includes(available[0].id);
+      smartSelectedMethod = available.length === 1 && !approximateFallback ? available[0].id : null;
+      smartMethodExplicit = false;
+      resetSmartParameters();
+    }
+    renderSmartMethods();
+  }
+  if (!references.length) {
+    smartSelectedMethod = null;
+    smartMethodExplicit = false;
+    resetSmartParameters();
+  }
+  for (const button of smartMethods.querySelectorAll("[data-smart-method]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.smartMethod === smartSelectedMethod));
+  }
+  const selected = smartCandidates.find((candidate) => candidate.id === smartSelectedMethod);
+  document.querySelector("#smartReferenceField").hidden = smartAddReference.hidden = smartFilter.value !== "plane";
+  document.querySelector("#smartAngleField").hidden = !selected?.parameters.includes("angle");
+  document.querySelector("#smartPathField").hidden = !selected?.parameters.includes("pathPosition");
+  document.querySelector("#smartOffsetField").hidden = smartFlip.hidden = !selected;
   smartUndo.disabled = smartClear.disabled = !references.length;
   smartFlip.setAttribute("aria-pressed", String(smartPlaneFlipped));
   smartPlaneDefinition = null;
-  try {
-    const plane = inferPickedPlane(references, {
-      surfaceMode: smartSurfaceMode.value,
-      fitSurface: (reference) => viewport.fitPlanarSurfaceReference(reference),
-      fitPoints: (reference) => fitPlaneToPoints(viewport.getNearestModelVertices(reference.point, 32)),
-    });
-    const offset = smartOffset.valueAsNumber;
-    if (!Number.isFinite(offset)) throw new Error("Enter a finite offset in model units.");
-    plane.normal = plane.normal.clone().normalize().multiplyScalar(smartPlaneFlipped ? -1 : 1);
-    plane.origin = plane.origin.clone().addScaledVector(plane.normal, offset);
-    viewport.setSmartPlanePreview(plane);
-    smartPlaneDefinition = plane;
-    smartStatus.textContent = plane.method + " — ready to create.";
-  } catch (error) {
-    viewport.setSmartPlanePreview(null);
-    smartStatus.textContent = error.message;
+  const available = smartCandidates.filter((candidate) => !candidate.error);
+  smartStatus.textContent = !smartCandidates.length ? smartSelectionHint
+    : !available.length ? smartCandidates[0].error
+    : smartCandidates.some((candidate) => candidate.error) && available.length === 1
+      ? smartCandidates.find((candidate) => candidate.error).error + " Choose a construction below."
+      : "Choose a construction below to preview the plane, or keep picking references.";
+  if (selected) {
+    try {
+      const plane = viewport.getPlaneInSpace({
+        ...selected.build({ angle: smartAngle.valueAsNumber, pathPosition: smartPathPosition.valueAsNumber }),
+        space: "world",
+      }, "model");
+      const offset = smartOffset.valueAsNumber;
+      if (!Number.isFinite(offset)) throw new Error("Enter a finite offset in model millimeters.");
+      plane.normal = plane.normal.clone().multiplyScalar(smartPlaneFlipped ? -1 : 1);
+      plane.origin = plane.origin.clone().addScaledVector(plane.normal, offset);
+      if (![...plane.origin].every(Number.isFinite)) throw new Error("This offset is too large for a finite plane.");
+      if (offset && selected.id !== "offset") plane.method += " + Offset";
+      smartPlaneDefinition = plane;
+      smartStatus.textContent = plane.method + " — ready to create. Keep picking to change the construction.";
+    } catch (error) { smartStatus.textContent = error.message; }
   }
-  document.querySelector("#smartToolbarStatus").textContent = smartStatus.textContent;
+  viewport.setSmartPlanePreview(smartPlaneDefinition);
+  const summary = references.map((reference) => reference.kind === "plane" ? reference.label : reference.kind || "point").join(", ");
+  selectionCount.textContent = references.length + (references.length === 1 ? " reference: " : " references: ") + summary;
+  document.querySelector("#smartToolbarStatus").textContent = (references.length ? references.length + " picked · " : "") + smartStatus.textContent;
   selectionInstruction.textContent = smartStatus.textContent;
-  selectionCount.textContent = references.length + (references.length === 1 ? " reference: " : " references: ") + references.map((r) => r.kind || "point").join(", ");
   createPlaneButton.disabled = smartSave.disabled = !smartPlaneDefinition;
   smartFlip.disabled = !smartPlaneDefinition;
-  smartOffset.disabled = !references.length;
 }
-document.querySelector("#smartPickFilter").addEventListener("change", (event) => {
-  viewport.smartPickFilter = event.target.value;
+smartFilter.addEventListener("change", () => {
+  viewport.smartPickFilter = smartFilter.value;
   viewport.clearSmartHover();
   viewport.clearSnapPreview();
+  updateSmartPlaneUi();
+});
+smartAddReference.addEventListener("click", () => {
+  viewport.addConstructionReference(viewport.getSmartPlaneReference(smartReferencePlane.value));
 });
 smartUndo.addEventListener("click", () => viewport.undoSmartPick());
 smartClear.addEventListener("click", () => viewport.clearConstructionSelection());
 smartFlip.addEventListener("click", () => { smartPlaneFlipped = !smartPlaneFlipped; updateSmartPlaneUi(); });
-smartOffset.addEventListener("input", updateSmartPlaneUi);
-smartSurfaceMode.addEventListener("change", updateSmartPlaneUi);
+for (const input of [smartOffset, smartAngle, smartPathPosition]) input.addEventListener("input", updateSmartPlaneUi);
 smartSave.addEventListener("click", () => createPlaneButton.click());
+new ResizeObserver(([entry]) => {
+  workspace.style.setProperty("--plane-toolbar-height", Math.ceil(entry.target.getBoundingClientRect().height) + "px");
+}).observe(smartToolbar.closest(".view-toolbar"));
 
 let selectedReferenceCount = 0;
 let alignmentPreviewSession = null;
@@ -6117,6 +6274,7 @@ function populatePlaneReferences() {
   if (planeReferenceB.value === planeReferenceA.value && references.length > 1) {
     planeReferenceB.value = references[1].id;
   }
+  populateSmartReferencePlanes();
 }
 
 function updateBoundsReadout() {

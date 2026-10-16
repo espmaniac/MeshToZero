@@ -120,11 +120,30 @@ Current model transformations are baked into exported vertex coordinates.
 
 ### Interactive plane picking
 
-Create Plane opens in **Pick from model** mode. Hover over the model to see the next reference, then click a surface, three points, an edge and a point, or two coplanar edges. Feature edges are picked directly; triangle diagonals are not treated as feature edges. The bottom viewport toolbar provides geometry filters, Undo pick, Clear, Flip normal, and a signed offset in model millimeters.
+Create Plane opens in **Pick from model** mode. Hover to inspect a reference, then click surfaces, real feature edges, or points. The bottom viewport toolbar replaces its history and navigation buttons with the active tool's controls. Closing the tool or switching modes restores the standard buttons.
 
-A valid selection shows a temporary preview. **Create Plane** saves it as construction geometry and adds an undoable history entry. One edge, collinear points, and skew edges remain incomplete or invalid until the selection is corrected. For a single surface, choose Flat area, Tangent, or Local best fit explicitly; a failed flat-area fit never silently switches methods. Point clouds support point picking and Flat area / Local best fit surface sampling, but do not provide tangent normals.
+The toolbar offers the same constructions as Manual, based on the complete selection:
 
-Automatic whole-model analysis and Manual methods remain available. Closing the tool, changing modes, clearing the selection, or replacing the model removes the temporary preview.
+| Selection | Available constructions |
+| --- | --- |
+| One surface | Planar Surface, Tangent (mesh only), Local Best Fit, Offset |
+| Three points | 3 Points, Best Fit |
+| Four points in endpoint-pair order | 2 Edges, Best Fit |
+| Three or more points / edge endpoints | Best Fit |
+| Two coplanar feature edges | 2 Edges, Best Fit |
+| One edge and one point | Edge + Point, Best Fit |
+| One edge or two points | Along Path, with a position from 0% to 100% |
+| One surface or reference plane, plus an edge or two points | At Angle, Perpendicular |
+| Two parallel flat surfaces or reference planes | Midplane |
+| One origin or saved reference plane | Offset |
+
+When multiple constructions are valid, choose an icon and label in the toolbar before saving. Invalid constructions are disabled with an explanation. Exact construction never silently falls back to approximate Best Fit. A single applicable exact construction is previewed automatically, and more references can still be added. Up to 32 references are supported.
+
+Use **Pick → Planes** to click a visible construction/origin plane, or choose any origin or saved plane from the reference list and press **Add plane**. Use the Points, Edges, and Surfaces filters to control ambiguous picks. Auto continues selecting surfaces after the first surface so opposite faces can directly produce a Midplane. Point clouds support points, flat-area fitting, and local best fit; they do not supply tangent normals.
+
+Method-specific angle and path position fields appear in the toolbar. Every selected construction supports Flip normal and a signed offset in model millimeters. Angles and perpendicularity are computed in world space so nonuniform scaling does not distort them. At Angle requires an axis parallel to the reference plane; Perpendicular requires a line that is not normal to it. Midplane requires separated parallel planes and handles opposite-facing normals.
+
+A valid construction shows a temporary preview. **Create Plane** saves it and adds an undoable history entry. Undo pick and Clear edit the references without saving. Closing the tool, changing modes, clearing references, or replacing the model removes the preview. Automatic whole-model analysis and the existing Manual workflow remain available.
 
 Geometry regression checks can be run from the browser console while the app is open:
 

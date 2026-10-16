@@ -411,7 +411,7 @@
                   <small>Pick references</small>
                 </button>
               </div>
-              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick a surface, an edge, or three points.</p><p class="alignment-hint">Hover to see the reference before picking. Use the bottom viewport toolbar to refine the selection. Nothing is saved until you choose Create Plane. Surface offsets use model millimeters.</p></div>
+              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick surfaces, edges, points, or reference planes.</p><p class="alignment-hint">The bottom toolbar shows the constructions that fit your selection. Pick two parallel surfaces for Midplane, or a surface and an axis for At Angle / Perpendicular. Choose an icon when several methods apply. Use the Planes filter to add origin or saved planes. Nothing is saved until you choose Create Plane.</p></div>
               <p class="plane-mode-description" id="planeModeDescription">Create planes from the complete model automatically.</p>
             </section>
 
@@ -1064,14 +1064,20 @@
         <div class="view-toolbar" role="toolbar" aria-label="Viewport controls">
           <div class="smart-plane-toolbar" id="smartPlaneToolbar" role="group" aria-label="Plane picking actions" hidden>
             <div class="smart-plane-actions">
-              <label>Pick <select id="smartPickFilter" aria-label="Pick geometry"><option value="auto">Auto</option><option value="point">Points</option><option value="edge">Edges</option><option value="surface">Surface</option></select></label>
-              <button id="smartPlaneUndo" type="button" title="Undo last pick"><svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg><span>Undo pick</span></button>
-              <button id="smartPlaneClear" type="button">Clear</button>
-              <label hidden>Surface <select id="smartSurfaceMode"><option value="planar-surface">Flat area</option><option value="tangent">Tangent</option><option value="best-fit">Local best fit</option></select></label>
-              <button id="smartPlaneFlip" type="button" aria-pressed="false">Flip normal</button>
-              <label>Offset <input id="smartPlaneOffset" type="number" value="0" step="0.1" aria-label="Plane offset in model millimeters"> mm</label>
+              <div class="smart-plane-controls">
+                <label>Pick <select id="smartPickFilter" aria-label="Pick geometry"><option value="auto">Auto</option><option value="point">Points</option><option value="edge">Edges</option><option value="surface">Surfaces</option><option value="plane">Planes</option></select></label>
+                <label id="smartReferenceField" hidden>Reference <select id="smartReferencePlane" aria-label="Reference plane to add"></select></label>
+                <button id="smartAddReference" type="button" hidden title="Add the selected reference plane"><svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span>Add plane</span></button>
+                <button id="smartPlaneUndo" type="button" title="Undo last pick"><svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg><span>Undo pick</span></button>
+                <button id="smartPlaneClear" type="button">Clear</button>
+                <button id="smartPlaneFlip" type="button" aria-pressed="false" hidden>Flip normal</button>
+                <label id="smartOffsetField" hidden>Offset <input id="smartPlaneOffset" type="number" value="0" step="0.1" aria-label="Plane offset in model millimeters"> mm</label>
+                <label id="smartAngleField" hidden>Angle <input id="smartPlaneAngle" type="number" value="45" step="1" aria-label="Plane angle in degrees"> deg</label>
+                <label id="smartPathField" hidden>Path <input id="smartPathPosition" type="number" value="50" min="0" max="100" step="1" aria-label="Position along path in percent"> %</label>
+              </div>
               <button id="smartPlaneSave" type="button">Create Plane</button>
             </div>
+            <div class="smart-plane-methods" id="smartPlaneMethods" role="group" aria-label="Choose plane construction" hidden></div>
             <output id="smartToolbarStatus" aria-live="polite"></output>
           </div>
           <div class="view-navigation" role="group" aria-label="View navigation">
