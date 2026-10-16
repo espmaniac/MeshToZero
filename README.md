@@ -130,36 +130,45 @@ Create Plane removes the temporary visual after saving. Change a parameter/refer
 
 Create Plane opens in **Pick from model** mode. Hover to inspect a reference, then click surfaces, real feature edges, or points. The bottom viewport toolbar replaces its history and navigation buttons with the active tool's controls. Closing the tool or switching modes restores the standard buttons.
 
-The toolbar offers the same constructions as Manual, based on the complete selection:
+All ten Manual methods are available immediately through the **Method** menu and labeled icons. Choose a method before picking geometry, or pick first and then choose a construction. Matching constructions have outlined icons; a unique exact match is previewed automatically. Explicit method choices and edited parameters stay selected through subsequent picks, Undo pick, and Clear. The toolbar explains missing or invalid geometry and disables Create until the construction is valid; exact construction never silently falls back to Best Fit.
 
-| Selection | Available constructions |
+| Method | Geometry and toolbar fields |
 | --- | --- |
-| One surface | Planar Surface, Tangent (mesh only), Local Best Fit, Offset |
-| Three points | 3 Points, Best Fit |
-| Four points in endpoint-pair order | 2 Edges, Best Fit |
-| Three or more points / edge endpoints | Best Fit |
-| Two coplanar feature edges, or one edge and two endpoints of the other | 2 Edges, Best Fit |
-| One edge and one point | Edge + Point, Best Fit |
-| One edge or two points | Along Path, with a position from 0% to 100% |
-| One surface or reference plane, plus an edge or two points | At Angle, Perpendicular |
-| Two parallel flat surfaces or reference planes | Midplane |
-| One origin or saved reference plane | Offset |
-| One surface or reference plane and one point | Parallel through Point |
+| Planar Surface | One flat mesh area or point-cloud area |
+| 3 Points | Three noncollinear points |
+| Best Fit | Three or more points / edge endpoints |
+| Tangent | One mesh surface location with a normal |
+| 2 Edges | Two coplanar feature edges, one edge and two endpoints, or four ordered endpoints |
+| Along Path | One edge or two ordered points; position from 0% to 100%, Reverse path |
+| Offset | Reference plane or picked flat surface; signed distance |
+| At Angle | One edge or two points; reference plane and axis rotation |
+| Midplane | Two parallel picked surfaces or reference planes; Reference and Second plane selectors |
+| Perpendicular | One edge or two points; reference plane |
 
-When multiple constructions are valid, choose an icon and label in the toolbar before saving. Invalid constructions are disabled with an explanation. Exact construction never silently falls back to approximate Best Fit. A single applicable exact construction is previewed automatically, and more references can still be added. Up to 32 references are supported.
+**At Angle example:** pick an edge, choose At Angle, choose the reference plane and enter the angle in the bottom toolbar. No plane pick or switch to Manual is required. The same fields appear if At Angle is selected before the edge. A suggested origin plane is chosen to avoid an axis normal to it; a picked flat surface takes priority. Reference selectors include origin planes, saved construction planes, and currently picked flat surfaces. Offset can start directly from a chosen reference with no model picks. Midplane accepts picked faces, selected planes, or a combination.
 
-Auto can select visible construction/origin planes where the pointer misses the model. Use **Pick → Planes** to select planes through the model, or choose any origin or saved plane from the reference list and press **Add plane**. Use the Points, Edges, and Surfaces filters to control ambiguous picks. Auto continues selecting surfaces after the first surface so opposite faces can directly produce a Midplane. Point clouds support points, flat-area fitting, and local best fit; they do not supply tangent normals. In Auto or Points mode, use **Model center** to include the bounds center as a point. Enabled object snaps are honored in both modes; Points also supports enabled grid snapping. Hover feedback and the reference summary identify the chosen snap.
+Auto picking follows an explicitly selected method: surface methods select surfaces, point methods select points, and axis methods accept edges or points. Before a method is chosen, Auto continues selecting surfaces after the first surface so opposite faces can directly produce a Midplane. Auto can also select visible construction/origin planes where the pointer misses the model. Use **Pick → Planes** to select planes through the model, or choose any origin or saved plane from the reference list and press **Add plane**. The Points, Edges, and Surfaces filters override automatic picking. Point clouds support points, flat-area fitting, and local best fit; they do not supply tangent normals. **Model center**, enabled object snaps, and grid snapping in Points mode remain available. Up to 32 references are supported.
 
-Method-specific axis rotation and path position fields appear in the toolbar. **Reverse path** swaps the start and end of an edge or two-point path. Every selected construction supports Flip normal and a signed offset; the field identifies whether its millimeters are measured in world or model space.
+Additional inferred constructions include Edge + Point, Parallel through Point, and Local Best Fit. Every construction supports Flip normal, a signed offset in the indicated world/model space, and a name, all within the bottom toolbar. On narrow screens, control rows scroll horizontally; on short landscape screens the Method menu replaces the duplicate icon strip to leave more room for picking.
 
 Offset, At Angle, Perpendicular, and Parallel through Point retain the reference plane's coordinate space. Midplane uses the shared reference space, or world space for mixed references. World constructions stay fixed when the model moves, and offsets from world references remain exact world distances after nonuniform scaling. Other constructions follow the model.
 
 At Angle rotates the reference orientation around any nonzero picked axis, as Manual does. The toolbar reports axis rotation and actual plane inclination separately; they can differ for an oblique axis. Perpendicular requires a line that is not normal to its reference plane. Midplane requires parallel planes, handles opposite-facing normals, and accepts distinct coincident references.
 
-A valid construction shows a temporary preview. **Create Plane** saves it and adds an undoable history entry. Undo pick and Clear edit the references without saving. Closing the tool, changing modes, clearing references, or replacing the model removes the preview. Automatic whole-model analysis and the existing Manual workflow remain available.
+A valid construction shows a temporary preview. **Create Plane** saves it and adds an undoable history entry. Closing the tool or changing modes removes the preview. Undo pick and Clear remove picked geometry without saving while retaining the chosen method and parameters; reference-only methods can still preview from their selected planes. Saving clears the preview until a parameter or pick changes. Automatic whole-model analysis and the existing Manual workflow remain available.
 
 Geometry regression checks can be run from the browser console while the app is open:
 
 ```js
 (await import("./tests/smart-plane.browser.js")).runSmartPlaneTests();
 ```
+
+The toolbar interaction regression test uses Playwright for Python and a local static server:
+
+```sh
+python -m http.server 8000
+# In another terminal, after installing playwright:
+python tests/plane-toolbar.playwright.py --base-url http://127.0.0.1:8000
+```
+
+Set `CHROMIUM_EXECUTABLE` if Chromium is installed outside `/usr/bin/chromium`.
