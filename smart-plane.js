@@ -10,6 +10,7 @@ const METHODS = {
   "two-edges": ["2 Edges", "edges"],
   "along-path": ["Along Path", "path"],
   offset: ["Offset", "offset"],
+  "offset-point": ["Parallel through Point", "offset"],
   angle: ["At Angle", "angle"],
   midplane: ["Midplane", "midplane"],
   perpendicular: ["Perpendicular", "perpendicular"],
@@ -31,7 +32,10 @@ function normalizePlane(plane) {
   if (xAxis.lengthSq() < 1e-16) xAxis = fallbackAxis(normal);
   if (![...xAxis].every(Number.isFinite)) throw new Error("The reference plane has an invalid axis.");
   // A new construction must never inherit a saved reference's ID or visibility.
-  return { method: plane.method, origin: plane.origin.clone(), normal, xAxis: xAxis.normalize() };
+  return {
+    method: plane.method, origin: plane.origin.clone(), normal, xAxis: xAxis.normalize(),
+    ...(Number.isFinite(plane.angleToReference) ? { angleToReference: plane.angleToReference } : {}),
+  };
 }
 
 function planeThroughSamples(samples, method) {
@@ -59,6 +63,16 @@ function lineFromPoints(first, second) {
   const direction = second.clone().sub(first);
   if (!direction.lengthSq()) throw new Error("Choose two different points for the line.");
   return { first, second, direction: direction.normalize() };
+}
+
+// Match Manual's reference ownership: world planes remain fixed when the
+// model changes, while model-space constructions follow the model.
+export function getPickedPlaneSpace(method, references) {
+  const spaces = references.filter((reference) => ["plane", "surface"].includes(reference.kind))
+    .map((reference) => reference.sourceSpace || reference.plane?.space || "model");
+  if (["offset", "offset-point", "angle", "perpendicular"].includes(method)) return spaces[0] || "model";
+  if (method === "midplane" && spaces.includes("world")) return "world";
+  return "model";
 }
 
 // Candidates consume the entire typed selection. Unsupported or invalid geometry is
@@ -102,8 +116,6 @@ export function getPickedPlaneCandidates(references, { fitSurface, fitLocalPoint
         throw new Error("Midplane requires two parallel flat surfaces or reference planes.");
       }
       const distance = second.origin.clone().sub(first.origin).dot(first.normal);
-      const scale = Math.max(first.origin.distanceTo(second.origin), 1e-12);
-      if (Math.abs(distance) <= scale * 1e-8) throw new Error("These planes coincide. Pick two separated parallel planes.");
       return { ...first, method: "Midplane", origin: first.origin.clone().addScaledVector(first.normal, distance / 2) };
     });
   } else if (planes.length === 1 && ((edges.length === 1 && !points.length) || (!edges.length && points.length === 2))) {
@@ -111,14 +123,10 @@ export function getPickedPlaneCandidates(references, { fitSurface, fitLocalPoint
       if (!Number.isFinite(angle)) throw new Error("Enter a finite angle in degrees.");
       const reference = referencePlane(planes[0]);
       const line = selectedLine();
-      // The axis direction must be parallel to the reference plane so the
-      // entered rotation is also the resulting angle between the planes.
-      if (Math.abs(line.direction.dot(reference.normal)) > 1e-6) {
-        throw new Error("At Angle needs an axis parallel to the reference plane.");
-      }
       const radians = angle * Math.PI / 180;
-      return { method: "At Angle", origin: line.first,
-        normal: reference.normal.clone().applyAxisAngle(line.direction, radians),
+      const normal = reference.normal.clone().applyAxisAngle(line.direction, radians);
+      const angleToReference = Math.acos(Math.min(1, Math.abs(normal.dot(reference.normal)))) * 180 / Math.PI;
+      return { method: "At Angle", origin: line.first, normal, angleToReference,
         xAxis: reference.xAxis.clone().applyAxisAngle(line.direction, radians) };
     }, ["angle"]);
     add("perpendicular", () => {
@@ -130,14 +138,18 @@ export function getPickedPlaneCandidates(references, { fitSurface, fitLocalPoint
       }
       return { method: "Perpendicular", origin: line.first, normal, xAxis: line.direction };
     });
+  } else if (planes.length === 1 && points.length === 1 && references.length === 2) {
+    add("offset-point", () => ({ ...referencePlane(planes[0]), origin: points[0].point, method: "Parallel through Point" }));
   } else if (!planes.length && points.length + edges.length === references.length) {
     if ((edges.length === 1 && !points.length) || (!edges.length && points.length === 2)) {
-      add("along-path", ({ pathPosition }) => {
+      add("along-path", ({ pathPosition, reversePath = false }) => {
         if (!Number.isFinite(pathPosition) || pathPosition < 0 || pathPosition > 100) {
           throw new Error("Path position must be between 0 and 100 percent.");
         }
         const line = selectedLine();
-        return { method: "Along Path", origin: line.first.clone().lerp(line.second, pathPosition / 100), normal: line.direction };
+        const fraction = reversePath ? 1 - pathPosition / 100 : pathPosition / 100;
+        return { method: "Along Path", origin: line.first.clone().lerp(line.second, fraction),
+          normal: line.direction.clone().multiplyScalar(reversePath ? -1 : 1) };
       }, ["pathPosition"]);
     }
     if (!edges.length && points.length === 3) {
@@ -146,9 +158,9 @@ export function getPickedPlaneCandidates(references, { fitSurface, fitLocalPoint
     if (edges.length === 1 && points.length === 1) {
       add("edge-point", () => planeThroughSamples([...edges[0].edge, points[0].point], "Through Edge and Point"));
     }
-    if ((edges.length === 2 && !points.length) || (!edges.length && points.length === 4)) {
+    if (edges.length * 2 + points.length === 4) {
       add("two-edges", () => {
-        const endpoints = edges.length ? edges.flatMap((reference) => reference.edge) : points.map((reference) => reference.point);
+        const endpoints = edges.flatMap((reference) => reference.edge).concat(points.map((reference) => reference.point));
         if (!endpoints[2].distanceToSquared(endpoints[3])) throw new Error("The second edge needs two different endpoints.");
         // Shared endpoints are valid, but duplicate entire edges do not define a plane.
         return planeThroughSamples(endpoints, "Through 2 Edges");
@@ -161,7 +173,6 @@ export function getPickedPlaneCandidates(references, { fitSurface, fitLocalPoint
 
   let hint = "Pick surfaces, edges, points, or reference planes.";
   if (points.length === 1 && references.length === 1) hint = "Pick a second point for a path, or three points for a plane.";
-  else if (planes.length === 1 && references.length === 2 && points.length === 1) hint = "Pick another point to define an axis for At Angle or Perpendicular.";
   else if (references.length && !candidates.length) hint = "This combination is not supported. Undo a pick or clear the selection.";
   return { candidates, hint };
 }

@@ -1068,12 +1068,14 @@
                 <label>Pick <select id="smartPickFilter" aria-label="Pick geometry"><option value="auto">Auto</option><option value="point">Points</option><option value="edge">Edges</option><option value="surface">Surfaces</option><option value="plane">Planes</option></select></label>
                 <label id="smartReferenceField" hidden>Reference <select id="smartReferencePlane" aria-label="Reference plane to add"></select></label>
                 <button id="smartAddReference" type="button" hidden title="Add the selected reference plane"><svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span>Add plane</span></button>
+                <button id="smartModelCenter" type="button" title="Use the center of the model bounds as a point"><svg class="icon" aria-hidden="true"><use href="#choice-point"></use></svg><span>Model center</span></button>
                 <button id="smartPlaneUndo" type="button" title="Undo last pick"><svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg><span>Undo pick</span></button>
                 <button id="smartPlaneClear" type="button">Clear</button>
                 <button id="smartPlaneFlip" type="button" aria-pressed="false" hidden>Flip normal</button>
-                <label id="smartOffsetField" hidden>Offset <input id="smartPlaneOffset" type="number" value="0" step="0.1" aria-label="Plane offset in model millimeters"> mm</label>
-                <label id="smartAngleField" hidden>Angle <input id="smartPlaneAngle" type="number" value="45" step="1" aria-label="Plane angle in degrees"> deg</label>
+                <label id="smartOffsetField" hidden><span id="smartOffsetLabel">Offset (model)</span> <input id="smartPlaneOffset" type="number" value="0" step="0.1" aria-label="Plane offset in model millimeters"> mm</label>
+                <label id="smartAngleField" hidden>Axis rotation <input id="smartPlaneAngle" type="number" value="45" step="1" aria-label="Rotation about the selected axis in degrees"> deg</label>
                 <label id="smartPathField" hidden>Path <input id="smartPathPosition" type="number" value="50" min="0" max="100" step="1" aria-label="Position along path in percent"> %</label>
+                <button id="smartReversePath" type="button" aria-pressed="false" hidden><svg class="icon" aria-hidden="true"><use href="#choice-path"></use></svg><span>Reverse path</span></button>
               </div>
               <button id="smartPlaneSave" type="button">Create Plane</button>
             </div>

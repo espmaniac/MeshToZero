@@ -1,6 +1,6 @@
 // Run with the application's import map: import this module and call runSmartPlaneTests().
 import { Vector3 } from "three";
-import { getPickedPlaneCandidates } from "../smart-plane.js";
+import { getPickedPlaneCandidates, getPickedPlaneSpace } from "../smart-plane.js";
 
 export function runSmartPlaneTests() {
   let passed = 0;
@@ -58,6 +58,9 @@ export function runSmartPlaneTests() {
   valid([edge(a, b), edge(c, d)], "two-edges");
   valid([edge(a, b), edge(a, c)], "two-edges");
   valid([a, b, c, d], "two-edges");
+  valid([edge(a, b), c, d], "two-edges");
+  valid([c, edge(a, b), d], "two-edges");
+  invalid([edge(a, b), point(0, 0, 1), point(0, 1, 1)], "two-edges");
   invalid([edge(a, b), edge(point(0, 0, 1), point(0, 1, 1))], "two-edges");
   invalid([a, b, point(3, 0)], "three-points");
   invalid([edge(a, a), c], "edge-point");
@@ -76,6 +79,9 @@ export function runSmartPlaneTests() {
   near(Math.abs(path.normal.x), 1, "Path plane must be normal to the line");
   near(valid([edge(a, b)], "along-path", { pathPosition: 100 }).origin.x, 2, "Edge path endpoint");
   near(valid([b, a], "along-path", { pathPosition: 25 }).origin.x, 1.5, "Path direction follows pick order");
+  const reverse = valid([edge(a, b)], "along-path", { pathPosition: 25, reversePath: true });
+  near(reverse.origin.x, 1.5, "Reversing a feature edge must swap the start and end");
+  near(reverse.normal.x, -1, "Reversing a path must reverse its directed normal");
   invalid([edge(a, a)], "along-path");
   for (const value of [-1, 101, NaN, Infinity]) {
     rejects(() => candidate([a, b], "along-path").build({ pathPosition: value }), "Invalid path position must be rejected");
@@ -104,7 +110,7 @@ export function runSmartPlaneTests() {
     near(plane.origin.z, 4, "Midplane must bisect the signed separation, including opposite normals");
   }
   invalid([reference(0), reference(3, new Vector3(1, 0, 0))], "midplane");
-  invalid([surface(0), surface(0)], "midplane");
+  near(valid([surface(0), surface(0)], "midplane").origin.z, 0, "Coincident distinct references share their midplane, as in Manual");
   invalid([curved, surface(8)], "midplane");
   const reversed = valid([reference(8, new Vector3(0, 0, -1)), reference(0)], "midplane");
   near(reversed.origin.z, 4, "Midplane must not depend on reference order");
@@ -120,12 +126,22 @@ export function runSmartPlaneTests() {
   near(rotation.normal.z, Math.SQRT1_2, "Signed angle must rotate the reference normal");
   rejects(() => candidate([reference(), a, b], "angle").build({ angle: NaN }), "Nonfinite angle must be rejected");
   const normalEdge = edge(a, point(0, 0, 2));
-  invalid([reference(), normalEdge], "angle");
+  const axialRotation = valid([reference(), normalEdge], "angle", { angle: 45 });
+  near(axialRotation.normal.z, 1, "Rotating about the plane normal must preserve the plane normal, as in Manual");
+  near(axialRotation.angleToReference, 0, "Report actual inclination separately from axis rotation");
+  const oblique = valid([reference(), edge(a, point(2, 2, 2))], "angle", { angle: 45 });
+  near(oblique.angleToReference, Math.acos((1 + 2 * Math.SQRT1_2) / 3) * 180 / Math.PI, "Oblique rotation must preserve Manual's arbitrary-axis behavior");
   invalid([reference(), normalEdge], "perpendicular");
   invalid([reference(), edge(a, a)], "angle");
   invalid([reference(), edge(a, a)], "perpendicular");
 
-  for (const references of [[], [a], [reference(), a], [surface(), surface(2), edge(a, b)]]) {
+  const through = point(4, 5, 7);
+  for (const references of [[reference(), through], [through, surface()]]) {
+    const plane = valid(references, "offset-point");
+    near(through.point.clone().sub(plane.origin).dot(plane.normal), 0, "Parallel through Point must contain the selected point");
+    near(Math.abs(plane.normal.z), 1, "Parallel through Point must retain the reference orientation");
+  }
+  for (const references of [[], [a], [surface(), surface(2), edge(a, b)]]) {
     assert(!getPickedPlaneCandidates(references, options).candidates.length, "Incomplete or unsupported references must not be ignored"); passed++;
   }
   const ids = new Set([
@@ -133,6 +149,18 @@ export function runSmartPlaneTests() {
   ].flatMap((references) => getPickedPlaneCandidates(references, options).candidates.map((candidate) => candidate.id)));
   for (const id of ["planar-surface", "three-points", "best-fit", "tangent", "two-edges", "along-path", "offset", "angle", "midplane", "perpendicular"]) {
     assert(ids.has(id), "Missing Manual method: " + id); passed++;
+  }
+  const world = { ...reference(), sourceSpace: "world" };
+  const model = { ...reference(), sourceSpace: "model" };
+  for (const method of ["offset", "offset-point", "angle", "perpendicular"]) {
+    assert(getPickedPlaneSpace(method, [world]) === "world", method + " must retain world reference ownership and distance units"); passed++;
+    assert(getPickedPlaneSpace(method, [model]) === "model", method + " must retain model reference ownership and distance units"); passed++;
+  }
+  for (const [references, expected] of [[[world, world], "world"], [[world, model], "world"], [[model, world], "world"], [[model, model], "model"], [[surface(), surface()], "model"]]) {
+    assert(getPickedPlaneSpace("midplane", references) === expected, "Midplane must preserve shared space or use world space for mixed references"); passed++;
+  }
+  for (const method of ["three-points", "two-edges", "along-path", "tangent", "best-fit"]) {
+    assert(getPickedPlaneSpace(method, [a, b, c]) === "model", method + " must follow the model"); passed++;
   }
   return { passed };
 }
