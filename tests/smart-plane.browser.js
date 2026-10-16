@@ -1,6 +1,6 @@
 // Run with the application's import map: import this module and call runSmartPlaneTests().
 import { Vector3 } from "three";
-import { getPickedPlaneCandidates, getPickedPlaneSpace } from "../smart-plane.js";
+import { getPickedPlaneCandidates, getPickedPlaneSpace, getPlaneConstructionWorkflows } from "../smart-plane.js";
 
 export function runSmartPlaneTests() {
   let passed = 0;
@@ -162,5 +162,93 @@ export function runSmartPlaneTests() {
   for (const method of ["three-points", "two-edges", "along-path", "tangent", "best-fit"]) {
     assert(getPickedPlaneSpace(method, [a, b, c]) === "model", method + " must follow the model"); passed++;
   }
+
+  // A workflow can be selected while references are still missing. It exposes
+  // the same editable fields as Manual rather than waiting for an inferred,
+  // already complete reference combination.
+  function workflow(references, id) {
+    const found = getPlaneConstructionWorkflows(references, options).workflows.find((workflow) => workflow.id === id);
+    assert(found, "Missing construction workflow: " + id);
+    return found;
+  }
+  function workflowValid(references, id, parameters = {}) {
+    const plane = workflow(references, id).build(parameters);
+    near(plane.normal.length(), 1, "Workflow normal must be normalized");
+    near(plane.xAxis.dot(plane.normal), 0, "Workflow axes must be perpendicular");
+    passed++;
+    return plane;
+  }
+  for (const id of ["planar-surface", "three-points", "best-fit", "tangent", "two-edges", "along-path", "offset", "angle", "midplane", "perpendicular"]) {
+    assert(workflow([], id).error, "Incomplete " + id + " must remain available with a helpful build error"); passed++;
+  }
+  for (const [id, parameters] of [["offset", ["referenceA", "offset"]], ["angle", ["referenceA", "angle"]], ["midplane", ["referenceA", "referenceB"]], ["perpendicular", ["referenceA"]], ["along-path", ["pathPosition"]]]) {
+    assert(parameters.every((parameter) => workflow([], id).parameters.includes(parameter)), "Expose all Manual parameters for " + id); passed++;
+  }
+
+  const referenceA = reference(2).plane, referenceB = reference(8).plane;
+  near(workflowValid([], "offset", { referenceA, offset: 3 }).origin.z, 5, "Offset can start without model picks");
+  near(referenceA.origin.z, 2, "Offset must not mutate its chosen reference"); passed++;
+  near(workflowValid([], "midplane", { referenceA, referenceB }).origin.z, 5, "Midplane can start with two toolbar reference planes");
+  near(workflowValid([surface(2)], "midplane", { referenceB }).origin.z, 5, "One picked surface can pair with toolbar reference B");
+  near(workflowValid([reference(2), surface(8)], "midplane").origin.z, 5, "Midplane can still use two picked references");
+  near(workflowValid([surface(0)], "offset", { referenceA, offset: -1 }).origin.z, 1, "Explicit toolbar reference overrides picked fallback");
+  for (const offset of [NaN, Infinity, -Infinity]) {
+    rejects(() => workflow([], "offset").build({ referenceA, offset }), "Nonfinite workflow offset must be rejected");
+  }
+  rejects(() => workflow([], "midplane").build({ referenceA }), "Midplane cannot silently duplicate missing reference B");
+  rejects(() => workflow([], "midplane").build({ referenceA, referenceB: reference(0, new Vector3(1, 0, 0)).plane }), "Nonparallel toolbar references cannot form a midplane");
+
+  for (const references of [[edge(a, b)], [a, b]]) {
+    const angled = workflowValid(references, "angle", { referenceA, angle: 90 });
+    near(Math.abs(angled.normal.y), 1, "Axis-only At Angle uses its selected toolbar reference");
+    near(angled.origin.z, 0, "At Angle origin lies on the selected model axis");
+    const perpendicular = workflowValid(references, "perpendicular", { referenceA });
+    near(Math.abs(perpendicular.normal.y), 1, "Axis-only Perpendicular uses its selected toolbar reference");
+  }
+  workflowValid([surface(), edge(a, b)], "angle", { angle: 30 });
+  workflowValid([reference(), a, b], "angle", { angle: 30 });
+  workflowValid([surface(), edge(a, b)], "perpendicular");
+  const explicitSurfaceAxis = workflowValid([surface(0), surface(2)], "angle", { referenceA, angle: 45 });
+  near(explicitSurfaceAxis.angleToReference, 0, "Explicit reference permits deliberate surface points as an axis");
+  const axisRotation = workflowValid([edge(a, point(2, 2, 2))], "angle", { referenceA, angle: 45 });
+  near(axisRotation.angleToReference, oblique.angleToReference, "Workflow keeps arbitrary-axis rotation and actual inclination");
+  rejects(() => workflow([edge(a, b)], "angle").build({ referenceA, angle: NaN }), "Workflow validates angle input");
+  rejects(() => workflow([normalEdge], "perpendicular").build({ referenceA }), "Normal axis cannot define a unique perpendicular workflow plane");
+  rejects(() => workflow([surface(), a], "angle").build(), "Fallback surface cannot silently serve as its own axis endpoint");
+
+  for (const references of [[a, b, c], [surface(), b, c], [reference(7), a, b, c]]) {
+    const plane = workflowValid(references, "three-points");
+    near(plane.origin.z, 0, "Saved plane origins never become point-method samples");
+  }
+  rejects(() => workflow([a, b, c, d], "three-points").build(), "3 Points cannot silently discard a fourth point");
+  rejects(() => workflow([a, b, point(3, 0)], "three-points").build(), "Workflow rejects collinear point geometry");
+  for (const references of [[edge(a, b), edge(c, d)], [c, edge(a, b), d], [a, b, c, d], [surface(), b, c, d]]) {
+    const plane = workflowValid(references, "two-edges");
+    near(plane.origin.y, 1.5, "2 Edges includes all ordered endpoints");
+  }
+  near(workflowValid([c, edge(a, b), d], "two-edges").xAxis.x, 1, "A feature edge retains its axis when its other endpoints are interleaved");
+  rejects(() => workflow([edge(a, b), edge(point(0, 0, 1), point(0, 1, 1))], "two-edges").build(), "Workflow rejects skew edges");
+  rejects(() => workflow([edge(a, b), edge(c, c)], "two-edges").build(), "Workflow rejects zero-length second edge");
+  workflowValid([edge(a, b), c], "edge-point");
+  workflowValid([edge(a, b), surface(2)], "edge-point");
+
+  const workflowPath = workflowValid([edge(a, b)], "along-path", { pathPosition: 25, reversePath: true });
+  near(workflowPath.origin.x, 1.5, "Workflow reverses directed feature-edge path");
+  near(workflowPath.normal.x, -1, "Workflow reverses path normal");
+  near(workflowValid([a, b], "along-path", { pathPosition: 75 }).origin.x, 1.5, "Workflow accepts ordered point paths");
+  for (const pathPosition of [-1, 101, NaN]) {
+    rejects(() => workflow([a, b], "along-path").build({ pathPosition }), "Workflow validates path position");
+  }
+  workflowValid([surface()], "planar-surface");
+  workflowValid([surface()], "tangent");
+  workflowValid([{ ...a, normal: new Vector3(0, 0, 1) }], "tangent");
+  rejects(() => workflow([cloud], "tangent").build(), "Point clouds cannot invent a tangent normal");
+  rejects(() => workflow([curved], "planar-surface").build(), "Flat workflow must preserve surface fitting errors");
+  workflowValid([curved], "local-best-fit");
+  workflowValid([surface(), b, c, d], "best-fit");
+  assert(fitCalls.at(-1).length === 4, "Workflow Best Fit includes deliberately chosen surface hit points"); passed++;
+  workflowValid([reference(7), ...many], "best-fit");
+  assert(fitCalls.at(-1).length === many.length, "Best Fit excludes saved plane origins"); passed++;
+  workflowValid([reference(), through], "offset-point");
   return { passed };
 }

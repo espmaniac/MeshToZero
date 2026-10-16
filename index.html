@@ -411,7 +411,7 @@
                   <small>Pick references</small>
                 </button>
               </div>
-              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick surfaces, edges, points, or reference planes.</p><p class="alignment-hint">The bottom toolbar shows the constructions that fit your selection. Pick two parallel surfaces for Midplane, or a surface and an axis for At Angle / Perpendicular. Choose an icon when several methods apply. Use the Planes filter to add origin or saved planes. Nothing is saved until you choose Create Plane.</p></div>
+              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick surfaces, edges, points, or reference planes.</p><p class="alignment-hint">Choose any Manual method in the bottom toolbar before or after picking geometry. At Angle and Perpendicular need an edge or two points; choose their reference plane directly in the toolbar. Midplane accepts two picked surfaces or selected planes. The toolbar keeps your method and fields while you pick the remaining references. Nothing is saved until you choose Create Plane.</p></div>
               <p class="plane-mode-description" id="planeModeDescription">Create planes from the complete model automatically.</p>
             </section>
 
@@ -1073,15 +1073,23 @@
                 <button id="smartModelCenter" type="button" title="Use the center of the model bounds as a point"><svg class="icon" aria-hidden="true"><use href="#choice-point"></use></svg><span>Model center</span></button>
                 <button id="smartPlaneUndo" type="button" title="Undo last pick"><svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg><span>Undo pick</span></button>
                 <button id="smartPlaneClear" type="button">Clear</button>
-                <button id="smartPlaneFlip" type="button" aria-pressed="false" hidden>Flip normal</button>
-                <label id="smartOffsetField" hidden><span id="smartOffsetLabel">Offset (model)</span> <input id="smartPlaneOffset" type="number" value="0" step="0.1" aria-label="Plane offset in model millimeters"> mm</label>
-                <label id="smartAngleField" hidden>Axis rotation <input id="smartPlaneAngle" type="number" value="45" step="1" aria-label="Rotation about the selected axis in degrees"> deg</label>
-                <label id="smartPathField" hidden>Path <input id="smartPathPosition" type="number" value="50" min="0" max="100" step="1" aria-label="Position along path in percent"> %</label>
-                <button id="smartReversePath" type="button" aria-pressed="false" hidden><svg class="icon" aria-hidden="true"><use href="#choice-path"></use></svg><span>Reverse path</span></button>
               </div>
               <button id="smartPlaneSave" type="button">Create Plane</button>
             </div>
-            <div class="smart-plane-methods" id="smartPlaneMethods" role="group" aria-label="Choose plane construction" hidden></div>
+            <div class="smart-plane-method-row">
+              <label>Method <select id="smartPlaneMethod" aria-label="Plane construction method"></select></label>
+              <div class="smart-plane-methods" id="smartPlaneMethods" role="group" aria-label="Choose plane construction"></div>
+            </div>
+            <div class="smart-plane-parameters" id="smartPlaneParameters" hidden>
+              <label id="smartMethodReferenceAField" hidden>Reference <select id="smartMethodReferenceA" aria-label="Construction reference plane"></select></label>
+              <label id="smartMethodReferenceBField" hidden>Second plane <select id="smartMethodReferenceB" aria-label="Second construction reference plane"></select></label>
+              <label id="smartAngleField" hidden>Axis rotation <input id="smartPlaneAngle" type="number" value="45" step="1" aria-label="Rotation about the selected axis in degrees"> deg</label>
+              <label id="smartPathField" hidden>Path <input id="smartPathPosition" type="number" value="50" min="0" max="100" step="1" aria-label="Position along path in percent"> %</label>
+              <button id="smartReversePath" type="button" aria-pressed="false" hidden><svg class="icon" aria-hidden="true"><use href="#choice-path"></use></svg><span>Reverse path</span></button>
+              <label id="smartOffsetField" hidden><span id="smartOffsetLabel">Offset (model)</span> <input id="smartPlaneOffset" type="number" value="0" step="0.1" aria-label="Plane offset in model millimeters"> mm</label>
+              <button id="smartPlaneFlip" type="button" aria-pressed="false" hidden>Flip normal</button>
+              <label>Name <input id="smartPlaneName" type="text" maxlength="48" placeholder="Plane name" aria-label="Construction plane name"></label>
+            </div>
             <output id="smartToolbarStatus" aria-live="polite"></output>
           </div>
           <div class="view-navigation" role="group" aria-label="View navigation">
