@@ -183,6 +183,40 @@ export function getPickedPlaneCandidates(references, { fitSurface, fitLocalPoint
   return { candidates, hint };
 }
 
+// Suggest only methods that explain the entire typed selection. Availability
+// depends on the reference types, not on whether their geometry is valid: a
+// skew edge pair still offers 2 Edges, whose builder explains the error.
+export function getSuggestedPlaneWorkflowIds(references = []) {
+  if (!references.length) return [];
+  const points = references.filter((reference) => !reference.kind || reference.kind === "point");
+  const edges = references.filter((reference) => reference.kind === "edge");
+  const planes = references.filter((reference) => ["surface", "plane"].includes(reference.kind));
+  if (points.length + edges.length + planes.length !== references.length) return [];
+
+  if (references.length === 1 && planes.length === 1) {
+    if (planes[0].kind === "plane") return ["offset", "midplane"];
+    return ["planar-surface", ...(planes[0].normal ? ["tangent"] : []), "local-best-fit", "offset", "midplane"];
+  }
+  if (references.length === 1 && points.length === 1) {
+    // A point's stored surface normal is enough to define its tangent plane.
+    // Point-cloud/model-center samples without a normal never imply one.
+    return [...(points[0].normal ? ["tangent"] : []), "local-best-fit"];
+  }
+  if (planes.length === 2 && references.length === 2) return ["midplane"];
+  if (planes.length === 1 && points.length === 1 && references.length === 2) return ["offset-point"];
+
+  const isAxis = (edges.length === 1 && !points.length) || (!edges.length && points.length === 2);
+  if (isAxis && planes.length <= 1) {
+    return [...(!planes.length ? ["along-path"] : []), "angle", "perpendicular"];
+  }
+  if (planes.length) return [];
+  if (!edges.length && points.length === 3) return ["three-points", "best-fit"];
+  if (edges.length === 1 && points.length === 1) return ["edge-point", "best-fit"];
+  if (edges.length * 2 + points.length === 4) return ["two-edges", "best-fit"];
+  if (edges.length * 2 + points.length >= 3) return ["best-fit"];
+  return [];
+}
+
 // Unlike inferred candidates, workflows remain available before their geometry
 // is complete. The caller can expose their reference/parameter fields immediately
 // and call build again as the user picks the missing geometry. All inputs and

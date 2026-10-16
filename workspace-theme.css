@@ -1436,13 +1436,15 @@ input:checked + .toggle-track,
   }
 }
 
-/* Keep model picking possible on phones held horizontally. The method menu
-   retains every construction while replacing the duplicate icon strip. */
+/* Keep model picking possible on phones held horizontally. The contextual
+   method menu replaces the duplicate icon strip after geometry is picked. */
 @media (max-width: 900px) and (max-height: 500px) {
-  .smart-plane-toolbar { grid-template-columns: 180px minmax(0, 1fr) auto; gap: 4px 8px; }
+  .smart-plane-toolbar { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; }
+  .smart-plane-toolbar.has-plane-methods { grid-template-columns: 180px minmax(0, 1fr) auto; }
   .smart-plane-actions { display: contents; }
-  .smart-plane-controls { grid-column: 2; grid-row: 1; }
-  #smartPlaneSave { grid-column: 3; grid-row: 1; }
+  .smart-plane-controls { grid-column: 1; grid-row: 1; }
+  .has-plane-methods .smart-plane-controls { grid-column: 2; }
+  #smartPlaneSave { grid-column: -2 / -1; grid-row: 1; }
   .smart-plane-method-row { grid-column: 1; grid-row: 1; border: 0; padding: 0; }
   .smart-plane-methods { display: none; }
   .smart-plane-parameters { grid-column: 1 / -1; grid-row: 2; }
