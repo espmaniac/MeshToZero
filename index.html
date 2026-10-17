@@ -1075,16 +1075,15 @@
                 <div class="smart-plane-heading-copy"><strong id="smartPlaneTitle">Create plane</strong><span id="smartPlaneSelectionSummary">Select geometry to begin</span></div>
               </div>
               <div class="smart-plane-actions">
-                <button id="smartPickOptionsToggle" class="smart-plane-pick-toggle" type="button" aria-label="Picking options" aria-expanded="false" aria-controls="smartPickOptions"><svg class="icon" aria-hidden="true"><use href="#icon-select"></use></svg><span id="smartPickSummary">Auto pick</span><svg class="icon smart-plane-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg></button>
+                <select id="smartPickFilter" aria-label="Pick geometry" title="Pick geometry"><option value="auto">Auto pick</option><option value="point">Points</option><option value="edge">Edges</option><option value="surface">Surfaces</option><option value="plane">Planes</option></select>
+                <button id="smartModelCenter" class="smart-plane-icon-button" type="button" aria-label="Use model center as a point" title="Use model center as a point"><svg class="icon" aria-hidden="true"><use href="#choice-point"></use></svg></button>
                 <button id="smartPlaneClear" class="smart-plane-icon-button" type="button" aria-label="Clear picked geometry" title="Clear picked geometry" hidden><svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
                 <button id="smartPlaneSave" type="button" hidden><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg>Create plane</button>
               </div>
             </div>
-            <div class="smart-plane-pick-options" id="smartPickOptions" role="group" aria-label="Picking options" hidden>
-              <label>Pick geometry<select id="smartPickFilter" aria-label="Pick geometry"><option value="auto">Auto</option><option value="point">Points</option><option value="edge">Edges</option><option value="surface">Surfaces</option><option value="plane">Planes</option></select></label>
-              <label id="smartReferenceField" hidden>Add reference<select id="smartReferencePlane" aria-label="Reference plane to add"></select></label>
-              <button id="smartAddReference" type="button" hidden><svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>Add plane</button>
-              <button id="smartModelCenter" type="button"><svg class="icon" aria-hidden="true"><use href="#choice-point"></use></svg>Model center</button>
+            <div class="smart-plane-pick-reference" id="smartPlanePickReference" role="group" aria-label="Add a reference plane" hidden>
+              <label id="smartReferenceField">Add reference<select id="smartReferencePlane" aria-label="Reference plane to add"></select></label>
+              <button id="smartAddReference" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>Add plane</button>
             </div>
             <div class="smart-plane-method-row" id="smartPlaneMethodRow" hidden>
               <p class="smart-plane-section-label" id="smartPlaneChoiceLabel">Choose a construction</p>

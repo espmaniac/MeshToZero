@@ -77,7 +77,9 @@ def run(base_url):
                 assert page.locator("#smartPlaneMethodRow").is_visible()
                 # The chooser should leave the model exposed, including the
                 # five-method surface selection that previously filled a panel.
-                assert page.locator(".view-toolbar").bounding_box()["height"] <= 120
+                # Planes mode adds its contextual reference selector below the header.
+                height_limit = 150 if page.locator("#smartPickFilter").input_value() == "plane" else 120
+                assert page.locator(".view-toolbar").bounding_box()["height"] <= height_limit
                 assert page.locator("[data-smart-method]:visible").count() == len(actual)
                 assert page.locator(".view-toolbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
                 for method in actual:
@@ -109,8 +111,6 @@ def run(base_url):
                 assert page.locator("#smartPlaneBack").get_attribute("aria-label") == "Back to methods"
 
             def pick_filter(value):
-                if page.locator("#smartPickOptions").is_hidden():
-                    page.locator("#smartPickOptionsToggle").click()
                 page.locator("#smartPickFilter").select_option(value)
 
             def set_offset(value):
@@ -180,7 +180,12 @@ def run(base_url):
 
             # A lone point does not expose unrelated construction choices. The
             # second point makes path and reference-plane constructions relevant.
-            page.locator("#smartPickOptionsToggle").click()
+            assert page.locator("#smartPickOptionsToggle").count() == 0
+            assert page.locator("#smartPickOptions").count() == 0
+            for mode in ["point", "edge", "surface", "plane", "auto"]:
+                pick_filter(mode)
+                assert page.locator("#smartModelCenter").is_visible() == (mode in ["auto", "point"])
+                assert page.locator("#smartPlanePickReference").is_visible() == (mode == "plane")
             page.locator("#smartModelCenter").click()
             assert method_ids() == ["local-best-fit"], method_ids()
             page.locator("#smartPlaneClear").click()
@@ -429,9 +434,13 @@ def run(base_url):
             assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == "angle"
             assert state()["references"] == ["edge"]
             assert_ready()
-            page.locator("#smartPickOptionsToggle").click()
+            page.locator("#smartPickFilter").focus()
+            page.keyboard.press("Space")
+            page.wait_for_function('document.querySelector("#smartPickFilter").matches(":open")')
             page.keyboard.press("Escape")
-            assert page.locator("#smartPickOptions").is_hidden()
+            assert not page.locator("#smartPickFilter").evaluate('e => e.matches(":open")')
+            assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == "angle"
+            assert state()["references"] == ["edge"]
             assert_ready()
             page.evaluate("document.activeElement.blur()")
             page.keyboard.press("Escape")
@@ -464,7 +473,7 @@ def run(base_url):
             page.keyboard.down("Escape")
             assert page.locator("#planeWorkbench").is_visible()
             page.keyboard.up("Escape")
-            assert page.locator("#smartPickOptionsToggle").evaluate("e => e === document.activeElement")
+            assert page.locator("#smartPickFilter").evaluate("e => e === document.activeElement")
             page.keyboard.press("Escape")
             assert page.locator(".view-navigation").is_visible()
             assert not state()["preview"]
@@ -489,9 +498,10 @@ def run(base_url):
                 touch_page.locator("#planeButton").tap()
                 if touch_page.locator("#mobilePanelToggle").is_visible():
                     touch_page.locator("#mobilePanelToggle").tap()
-                touch_page.locator("#smartPickOptionsToggle").tap()
                 touch_page.locator("#smartPickFilter").select_option("point")
-                assert touch_page.locator("#smartPickOptions").is_hidden()
+                assert touch_page.locator("#smartPickOptionsToggle").count() == 0
+                assert touch_page.locator("#smartModelCenter").is_visible()
+                assert touch_page.locator("#smartPlanePickReference").is_hidden()
                 if width == 768:
                     taps = touch_page.evaluate("""() => {
                         const viewport = window.__workflowTest.viewport;

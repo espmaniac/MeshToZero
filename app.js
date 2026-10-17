@@ -5828,8 +5828,6 @@ const smartTitle = document.querySelector("#smartPlaneTitle");
 const smartTitleIcon = document.querySelector("#smartPlaneTitleIcon");
 const smartSelectionSummary = document.querySelector("#smartPlaneSelectionSummary");
 const smartBack = document.querySelector("#smartPlaneBack");
-const smartPickOptions = document.querySelector("#smartPickOptions");
-const smartPickToggle = document.querySelector("#smartPickOptionsToggle");
 const smartAdvanced = document.querySelector("#smartPlaneAdvanced");
 const smartAdvancedToggle = document.querySelector("#smartPlaneAdvancedToggle");
 const smartReferenceA = document.querySelector("#smartMethodReferenceA");
@@ -5889,8 +5887,6 @@ function selectSmartMethod(id, explicit = true) {
   smartChoosingMethod = false;
   smartAdvancedOpen = false;
   smartPreviewPaused = false;
-  smartPickOptions.hidden = true;
-  smartPickToggle.setAttribute("aria-expanded", "false");
   viewport.clearSmartHover();
   viewport.clearSnapPreview();
   updateSmartPlaneUi();
@@ -5951,8 +5947,6 @@ function renderSmartMethods(selected, references) {
   smartAdvancedToggle.hidden = !editing;
   smartAdvancedToggle.setAttribute("aria-expanded", String(editing && smartAdvancedOpen));
   smartAdvanced.hidden = !editing || !smartAdvancedOpen;
-  document.querySelector("#smartPickSummary").textContent = smartFilter.value === "auto"
-    ? "Auto pick" : smartFilter.selectedOptions[0].textContent;
   const offsetSlot = document.querySelector(selected?.id === "offset" ? "#smartPrimaryOffsetSlot" : "#smartExtraOffsetSlot");
   const offsetField = document.querySelector("#smartOffsetField");
   if (offsetField.parentElement !== offsetSlot) offsetSlot.append(offsetField);
@@ -6044,8 +6038,6 @@ function updateSmartPlaneUi() {
   if (!enabled || !viewport) {
     smartChoosingMethod = false;
     smartAdvancedOpen = false;
-    smartPickOptions.hidden = true;
-    smartPickToggle.setAttribute("aria-expanded", "false");
     if (viewport) { viewport.smartPickIntent = null; viewport.setPlanePreview(null); }
     return;
   }
@@ -6106,7 +6098,7 @@ function updateSmartPlaneUi() {
   const selected = smartCandidates.find((candidate) => candidate.id === smartSelectedMethod);
   const { choosing, editing } = renderSmartMethods(selected, references);
   const parameters = selected?.parameters || [];
-  document.querySelector("#smartReferenceField").hidden = smartAddReference.hidden = smartFilter.value !== "plane";
+  document.querySelector("#smartPlanePickReference").hidden = smartFilter.value !== "plane";
   document.querySelector("#smartMethodReferenceAField").hidden = !parameters.includes("referenceA");
   document.querySelector("#smartMethodReferenceBField").hidden = !parameters.includes("referenceB");
   document.querySelector("#smartAngleField").hidden = !parameters.includes("angle");
@@ -6165,7 +6157,7 @@ function updateSmartPlaneUi() {
   const toolbarStatus = document.querySelector("#smartToolbarStatus");
   toolbarStatus.dataset.state = !choosing && selected && !smartPlaneDefinition ? "error" : smartPlaneDefinition ? "ready" : "waiting";
   toolbarStatus.textContent = choosing ? "Choose a construction to preview a plane."
-    : !references.length ? "Click the model, or use picking options."
+    : !references.length ? "Click the model, or choose a picking mode."
       : smartPlaneDefinition ? (selected.id === "angle"
         ? "Preview ready · Plane angle " + smartPlaneDefinition.angleToReference.toFixed(3) + "°"
         : "Preview only · Ready to create.")
@@ -6179,8 +6171,6 @@ function navigateSmartPlaneBack() {
   const fromEditor = smartToolbar.dataset.step === "configure";
   smartChoosingMethod = true;
   smartAdvancedOpen = false;
-  smartPickOptions.hidden = true;
-  smartPickToggle.setAttribute("aria-expanded", "false");
   viewport.clearSmartHover();
   viewport.clearSnapPreview();
   if (fromEditor) {
@@ -6193,7 +6183,7 @@ function navigateSmartPlaneBack() {
     // Stay in the chooser after removing a reference, even when the remaining
     // geometry has a unique exact construction. One press removes one pick.
     viewport.undoSmartPick();
-    (viewport.selectionReferences.length ? smartBack : smartPickToggle).focus({ preventScroll: true });
+    (viewport.selectionReferences.length ? smartBack : smartFilter).focus({ preventScroll: true });
   }
 }
 
@@ -6202,11 +6192,7 @@ function handleSmartPlaneEscape(event) {
   // Let Escape dismiss a native select popup before navigating the tool.
   if (event.target instanceof HTMLSelectElement && CSS.supports("selector(select:open)") && event.target.matches(":open")) return true;
   if (event.repeat) { event.preventDefault(); return true; }
-  if (!smartPickOptions.hidden) {
-    smartPickOptions.hidden = true;
-    smartPickToggle.setAttribute("aria-expanded", "false");
-    smartPickToggle.focus({ preventScroll: true });
-  } else if (smartAdvancedOpen) {
+  if (smartAdvancedOpen) {
     smartAdvancedOpen = false;
     updateSmartPlaneUi();
     smartAdvancedToggle.focus({ preventScroll: true });
@@ -6218,32 +6204,17 @@ function handleSmartPlaneEscape(event) {
 }
 
 smartBack.addEventListener("click", navigateSmartPlaneBack);
-smartPickToggle.addEventListener("click", () => {
-  smartPickOptions.hidden = !smartPickOptions.hidden;
-  smartPickToggle.setAttribute("aria-expanded", String(!smartPickOptions.hidden));
-  smartAdvancedOpen = false;
-  updateSmartPlaneUi();
-});
 smartAdvancedToggle.addEventListener("click", () => {
   smartAdvancedOpen = !smartAdvancedOpen;
-  smartPickOptions.hidden = true;
-  smartPickToggle.setAttribute("aria-expanded", "false");
   updateSmartPlaneUi();
 });
 smartFilter.addEventListener("change", () => {
   viewport.smartPickFilter = smartFilter.value;
   viewport.clearSmartHover();
   viewport.clearSnapPreview();
-  if (smartFilter.value !== "plane") {
-    smartPickOptions.hidden = true;
-    smartPickToggle.setAttribute("aria-expanded", "false");
-    smartPickToggle.focus({ preventScroll: true });
-  }
   updateSmartPlaneUi();
 });
 smartAddReference.addEventListener("click", () => {
-  smartPickOptions.hidden = true;
-  smartPickToggle.setAttribute("aria-expanded", "false");
   viewport.addConstructionReference(viewport.getSmartPlaneReference(smartReferencePlane.value));
 });
 for (const [slot, select] of [["A", smartReferenceA], ["B", smartReferenceB]]) {
@@ -6266,14 +6237,12 @@ planeNameInput.addEventListener("input", () => {
   }
 });
 smartModelCenter.addEventListener("click", () => {
-  smartPickOptions.hidden = true;
-  smartPickToggle.setAttribute("aria-expanded", "false");
   viewport.selectModelCenterReference();
 });
 smartReversePath.addEventListener("click", () => { smartPathReversed = !smartPathReversed; smartPreviewPaused = false; updateSmartPlaneUi(); });
 smartClear.addEventListener("click", () => {
   viewport.clearConstructionSelection();
-  smartPickToggle.focus({ preventScroll: true });
+  smartFilter.focus({ preventScroll: true });
 });
 smartFlip.addEventListener("click", () => { smartPlaneFlipped = !smartPlaneFlipped; updateSmartPlaneUi(); });
 for (const input of [smartOffset, smartAngle, smartPathPosition]) input.addEventListener("input", () => {
@@ -6282,7 +6251,7 @@ for (const input of [smartOffset, smartAngle, smartPathPosition]) input.addEvent
 });
 smartSave.addEventListener("click", () => {
   createPlaneButton.click();
-  smartPickToggle.focus({ preventScroll: true });
+  smartFilter.focus({ preventScroll: true });
 });
 new ResizeObserver(([entry]) => {
   workspace.style.setProperty("--plane-toolbar-height", Math.ceil(entry.target.getBoundingClientRect().height) + "px");

@@ -1392,18 +1392,17 @@ input:checked + .toggle-track,
 .smart-plane-toolbar button:disabled { opacity: .45; cursor: not-allowed; }
 .smart-plane-toolbar button[aria-pressed="true"] { background: #858585; color: #171717; border-color: #aaaaaa; }
 .smart-plane-toolbar .smart-plane-icon-button { width: 30px; padding: 0; background: transparent; border-color: transparent; }
-.smart-plane-toolbar .smart-plane-pick-toggle { background: transparent; border-color: transparent; color: #dddddd; }
-.smart-plane-pick-toggle .smart-plane-chevron { width: 11px; height: 11px; }
-.smart-plane-pick-toggle[aria-expanded="true"] .smart-plane-chevron { transform: rotate(180deg); }
 .smart-plane-toolbar #smartPlaneSave:not(:disabled) { background: #bcbcbc; border-color: #cccccc; color: #202020; }
 .smart-plane-toolbar #smartPlaneSave:hover:not(:disabled) { background: #cccccc; }
 .smart-plane-toolbar #smartPlaneSave { font-weight: 600; white-space: nowrap; }
 .smart-plane-toolbar label { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; color: #dddddd; font-size: 11px; line-height: 1.25; }
 .smart-plane-toolbar :is(input, select) { min-width: 0; width: 100%; background: #484848; border-color: #727272; }
+.smart-plane-toolbar #smartPickFilter { width: auto; max-width: 130px; }
 .smart-plane-toolbar input[type="number"] { font-variant-numeric: tabular-nums; }
-.smart-plane-pick-options, .smart-plane-parameters, .smart-plane-advanced { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; min-width: 0; }
-.smart-plane-pick-options, .smart-plane-advanced { padding: 12px; border-radius: 9px; background: #4e4d4d; }
-.smart-plane-pick-options label { flex: 1 1 130px; }
+.smart-plane-pick-reference, .smart-plane-parameters, .smart-plane-advanced { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; min-width: 0; }
+.smart-plane-advanced { padding: 12px; border-radius: 9px; background: #4e4d4d; }
+.smart-plane-pick-reference label { flex-direction: row; align-items: center; white-space: nowrap; }
+.smart-plane-pick-reference select { flex: 1; }
 #smartReferenceField { flex: 2 1 190px; }
 .smart-plane-method-row { min-width: 0; }
 .smart-plane-section-label, .smart-plane-method-copy small {
@@ -1452,7 +1451,7 @@ input:checked + .toggle-track,
   .smart-plane-header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; }
   .smart-plane-header:has(#smartPlaneBack[hidden]) .smart-plane-heading { grid-column: 1 / -1; }
   .smart-plane-actions { grid-column: 1 / -1; }
-  .smart-plane-pick-toggle { margin-right: auto; }
+  #smartPickFilter { margin-right: auto; }
   #smartPlaneSave { margin-left: auto; }
   .smart-plane-parameters label { flex-direction: column; align-items: stretch; white-space: normal; }
   .smart-plane-parameters .smart-plane-reference-field { flex-basis: 155px; }
