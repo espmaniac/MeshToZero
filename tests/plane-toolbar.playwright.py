@@ -90,7 +90,7 @@ def run(base_url):
                 assert page.locator("#smartPlaneParameters").is_hidden()
                 assert page.locator("[data-smart-method]:visible").count() == 0
                 assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == ""
-                assert page.locator("#smartPlaneChangeMethod").is_hidden()
+                assert page.locator("#smartPlaneBack").is_hidden()
                 assert page.locator("#smartPlaneAdvancedToggle").is_hidden()
                 assert method_ids() == []
                 assert page.locator("#smartPlaneSave").is_disabled()
@@ -99,13 +99,14 @@ def run(base_url):
             def choose_method(method):
                 assert method in method_ids(), (method, method_ids(), status())
                 if page.locator("#smartPlaneMethodRow").is_hidden():
-                    page.locator("#smartPlaneChangeMethod").click()
+                    page.locator("#smartPlaneBack").click()
                 page.locator(f'[data-smart-method="{method}"]').click()
                 assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == method
                 assert page.locator("#smartPlaneMethodRow").is_hidden()
                 assert page.locator("[data-smart-method]:visible").count() == 0
                 assert page.locator("#smartPlaneAdvanced").is_hidden()
-                assert page.locator("#smartPlaneChangeMethod").is_visible() == (len(method_ids()) > 1)
+                assert page.locator("#smartPlaneBack").is_visible()
+                assert page.locator("#smartPlaneBack").get_attribute("aria-label") == "Back to methods"
 
             def pick_filter(value):
                 if page.locator("#smartPickOptions").is_hidden():
@@ -193,14 +194,33 @@ def run(base_url):
             choose_method("angle")
             assert page.locator("#smartAngleField").is_visible()
             assert page.locator("#smartMethodReferenceAField").is_visible()
+            if page.evaluate('CSS.supports("selector(select:open)")'):
+                page.locator("#smartMethodReferenceA").press("Space")
+                page.wait_for_function('document.querySelector("#smartMethodReferenceA").matches(":open")')
+                page.keyboard.press("Escape")
+                assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == "angle"
+                assert state()["references"] == ["point", "point"]
             page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
             page.locator("#smartPlaneAngle").fill("37")
             assert_ready()
-            page.locator("#smartPlaneUndo").click()
+            page.locator("#smartPlaneBack").click()
+            assert state()["references"] == ["point", "point"]
             assert not state()["preview"]
-            assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == "angle"
+            assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == ""
             assert page.locator("#smartPlaneAngle").input_value() == "37"
+            assert page.locator("#smartPlaneSave").is_disabled()
+            assert page.evaluate("window.__workflowTest.viewport.smartPickIntent") is None
+            choose_method("angle")
+            assert_ready()
+            assert page.locator("#smartPlaneAngle").input_value() == "37"
+            page.locator("#smartPlaneBack").click()
+            page.locator("#smartPlaneBack").click()
+            assert state()["references"] == ["point"]
+            assert "angle" not in method_ids()
+            assert page.locator("#smartPlaneBack").get_attribute("aria-label") == "Remove last picked point"
             add_points([(2, 0, 0)])
+            assert not state()["preview"]
+            choose_method("angle")
             assert_ready()
             before_reference = state()["preview"]
             page.locator("#smartMethodReferenceA").select_option("saved:world-xz")
@@ -212,7 +232,7 @@ def run(base_url):
                 assert page.locator("#smartPlaneSave").is_disabled()
             page.locator("#smartPlaneAngle").fill("45")
             save("Angle from toolbar")
-            print("PASS two-point Angle suggestions, partial Undo, reference edits, invalid angle and preview/save parity", flush=True)
+            print("PASS back to methods preserves points/angle; chooser back removes one point; reference edits and preview/save parity", flush=True)
 
             add_edge()
             assert_methods(["along-path", "angle", "perpendicular"], ["three-points", "two-edges"])
@@ -220,13 +240,16 @@ def run(base_url):
             choose_method("angle")
             assert_ready()
             assert state()["references"] == ["edge"]
-            page.locator("#smartPlaneUndo").click()
+            page.locator("#smartPlaneBack").click()
+            assert state()["references"] == ["edge"]
+            assert page.locator("#smartPlaneBack").get_attribute("aria-label") == "Remove last picked edge"
+            page.locator("#smartPlaneBack").click()
             assert_empty()
             add_edge()
             assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == ""
             choose_method("angle")
             save("Edge angle")
-            print("PASS edge-first Angle and Undo-to-zero clears explicit method intent", flush=True)
+            print("PASS edge-first Angle and two-level back clears one whole edge at the root", flush=True)
 
             add_points([(0, 0, 0), (2, 0, 0), (0, 3, 0)])
             assert_methods(["three-points", "best-fit"], ["angle", "along-path", "two-edges"])
@@ -295,6 +318,31 @@ def run(base_url):
             assert abs(state()["preview"]["origin"][2] - 5) < 1e-9
             offset_plane = save("Offset from world")
             assert offset_plane["space"] == "world"
+            # A unique inferred construction must still be able to return to
+            # its method chooser, and must not immediately reopen itself.
+            saved_count = state()["count"]
+            add_plane("world-xy")
+            add_plane(offset_plane["id"])
+            assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == "midplane"
+            assert_ready()
+            page.locator("#smartPlaneBack").click()
+            assert_methods(["midplane"])
+            assert state()["references"] == ["plane", "plane"] and not state()["preview"]
+            page.locator("#smartPlaneBack").click()
+            assert state()["references"] == ["plane"]
+            assert_methods(["offset", "midplane"])
+            add_plane(offset_plane["id"])
+            assert_methods(["midplane"])
+            assert not state()["preview"]
+            assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == ""
+            choose_method("midplane")
+            assert_ready()
+            page.locator("#smartPlaneBack").click()
+            page.locator("#smartPlaneClear").click()
+            assert_empty()
+            assert state()["count"] == saved_count
+            print("PASS unique automatic Midplane can go back without reopening or modifying saved planes", flush=True)
+
             # Saving hides all method fields, including Name, until another pick.
             assert page.locator("#smartPlaneName").is_hidden()
             add_plane("world-xy")
@@ -362,41 +410,65 @@ def run(base_url):
             save("Point-cloud local fit")
             print("PASS model replacement empties contextual state; cloud offers fitting and hides unsupported Tangent", flush=True)
 
-            # The only chooser is the compact method-button group. Changing a method
-            # retains its values until another method is selected, and Escape
-            # returns to the editor instead of closing the entire tool.
+            # One arrow always navigates outward. Escape dismisses auxiliary
+            # settings first, then follows the same hierarchy even outside the
+            # toolbar. Returning to methods must preserve edits and clear the
+            # preview instead of keeping an invisible active construction.
             add_edge()
             choose_method("angle")
             assert page.locator("#smartPlaneMethod").count() == 0
+            assert page.locator("#smartPlaneChangeMethod").count() == 0
+            assert page.locator("#smartPlaneUndo").count() == 0
             assert page.locator("#smartMethodReferenceA").evaluate("e => e === document.activeElement")
             page.locator("#smartPlaneAngle").fill("31")
-            page.locator("#smartPlaneChangeMethod").click()
+            reference_before = page.locator("#smartMethodReferenceA").input_value()
+            page.locator("#smartPlaneAdvancedToggle").click()
+            page.locator("#smartPlaneName").fill("Preserved name")
+            page.keyboard.press("Escape")
+            assert page.locator("#smartPlaneAdvanced").is_hidden()
+            assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == "angle"
+            assert state()["references"] == ["edge"]
+            assert_ready()
+            page.locator("#smartPickOptionsToggle").click()
+            page.keyboard.press("Escape")
+            assert page.locator("#smartPickOptions").is_hidden()
+            assert_ready()
+            page.evaluate("document.activeElement.blur()")
+            page.keyboard.press("Escape")
             assert_methods(["along-path", "angle", "perpendicular"])
             assert page.locator("#smartPlaneParameters").is_hidden()
             assert page.locator("#smartPlaneSave").is_hidden()
             assert page.locator("#createPlaneButton").is_disabled()
+            assert state()["references"] == ["edge"] and not state()["preview"]
             assert page.locator('[data-smart-method="angle"]').evaluate("e => e === document.activeElement")
-            page.keyboard.press("Escape")
-            assert page.locator("#planeWorkbench").is_visible()
-            assert page.locator("#smartPlaneMethodRow").is_hidden()
+            choose_method("angle")
             assert page.locator("#smartPlaneAngle").input_value() == "31"
-            assert_ready()
+            assert page.locator("#smartMethodReferenceA").input_value() == reference_before
             page.locator("#smartPlaneAdvancedToggle").click()
-            assert page.locator("#smartPlaneName").is_visible()
-            page.keyboard.press("Escape")
+            assert page.locator("#smartPlaneName").input_value() == "Preserved name"
+            page.locator("#smartPlaneBack").click()
             assert page.locator("#smartPlaneAdvanced").is_hidden()
-            assert page.locator("#planeWorkbench").is_visible()
-            choose_method("along-path")
-            assert page.locator("#smartAngleField").is_hidden()
-            assert page.locator("#smartMethodReferenceAField").is_hidden()
-            assert page.locator("#smartPathField").is_visible()
-            page.locator("#smartPlaneClear").click()
+            choose_method("angle")
+            page.locator("#smartPlaneAngle").fill("")
+            assert not state()["preview"]
+            page.locator("#smartPlaneBack").click()
+            assert_methods(["along-path", "angle", "perpendicular"])
+            choose_method("angle")
+            assert page.locator("#smartPlaneAngle").input_value() == ""
+            page.locator("#smartPlaneAngle").fill("31")
+            assert_ready()
+            page.keyboard.press("Escape")
+            assert_methods(["along-path", "angle", "perpendicular"])
+            page.keyboard.down("Escape")
             assert_empty()
+            page.keyboard.down("Escape")
+            assert page.locator("#planeWorkbench").is_visible()
+            page.keyboard.up("Escape")
             assert page.locator("#smartPickOptionsToggle").evaluate("e => e === document.activeElement")
             page.keyboard.press("Escape")
             assert page.locator(".view-navigation").is_visible()
             assert not state()["preview"]
-            print("PASS focused method editor, Change/Back/Escape, optional settings, keyboard focus and Clear", flush=True)
+            print("PASS single-arrow hierarchy, settings dismissal, preserved values, invalid input, global Escape and repeat protection", flush=True)
 
             result = page.evaluate("""async () =>
                 (await import('./tests/smart-plane.browser.js')).runSmartPlaneTests()
@@ -443,10 +515,16 @@ def run(base_url):
                 assert touch_page.locator("[data-smart-method]:visible").count() == 0
                 touch_page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
                 touch_page.locator("#smartPlaneAngle").fill("33")
-                for selector in ["#smartPlaneAngle", "#smartMethodReferenceA", "#smartPlaneSave", "#smartPlaneChangeMethod"]:
+                for selector in ["#smartPlaneAngle", "#smartMethodReferenceA", "#smartPlaneSave", "#smartPlaneBack"]:
                     rect = touch_page.locator(selector).bounding_box()
                     assert rect["x"] >= 0 and rect["x"] + rect["width"] <= width + 1, (width, selector, rect)
                 assert touch_page.locator(".view-toolbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+                touch_page.locator("#smartPlaneBack").tap()
+                assert touch_page.locator("#smartPlaneMethodRow").is_visible()
+                assert touch_page.evaluate("window.__workflowTest.viewport.selectionReferences.length") == 2
+                assert touch_page.evaluate("window.__workflowTest.viewport.planePreview") is None
+                touch_page.locator('[data-smart-method="angle"]').tap()
+                assert touch_page.locator("#smartPlaneAngle").input_value() == "33"
                 touch_page.locator("#smartPlaneAdvancedToggle").tap()
                 touch_page.locator("#smartPlaneName").fill("Touch plane")
                 touch_page.locator("#smartPlaneSave").tap()

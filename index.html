@@ -174,6 +174,9 @@
         <circle cx="12" cy="12" r="2"/>
         <path d="M12 1v4m0 14v4M1 12h4m14 0h4"/>
       </symbol>
+      <symbol id="icon-back" viewBox="0 0 24 24">
+        <path d="M20 12H4m6-6-6 6 6 6"/>
+      </symbol>
       <symbol id="icon-chevron" viewBox="0 0 24 24">
         <path d="m8 10 4 4 4-4"/>
       </symbol>
@@ -411,7 +414,7 @@
                   <small>Pick references</small>
                 </button>
               </div>
-              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick surfaces, edges, points, or reference planes.</p><p class="alignment-hint">Pick geometry, then choose a construction below. The toolbar shows the selected method and its parameters. Use Change to choose another method, or More options for naming and extra adjustments. Nothing is saved until you choose Create plane.</p></div>
+              <div data-plane-mode-panel="pick" hidden><p id="smartPlaneStatus">Pick surfaces, edges, points, or reference planes.</p><p class="alignment-hint">Pick geometry, then choose a construction below. The toolbar shows the selected method and its parameters. The back arrow returns to methods, then removes the last pick. More options contains naming and extra adjustments. Nothing is saved until you choose Create plane.</p></div>
               <p class="plane-mode-description" id="planeModeDescription">Create planes from the complete model automatically.</p>
             </section>
 
@@ -1066,14 +1069,13 @@
         <div class="view-toolbar" role="toolbar" aria-label="Viewport controls">
           <div class="smart-plane-toolbar" id="smartPlaneToolbar" role="group" aria-label="Plane construction" hidden>
             <div class="smart-plane-header">
+              <button id="smartPlaneBack" class="smart-plane-icon-button" type="button" aria-label="Back to methods" title="Back to methods" hidden><svg class="icon" aria-hidden="true"><use href="#icon-back"></use></svg></button>
               <div class="smart-plane-heading">
                 <span class="smart-plane-heading-icon" aria-hidden="true"><svg class="icon"><use id="smartPlaneTitleIcon" href="#icon-plane"></use></svg></span>
                 <div class="smart-plane-heading-copy"><strong id="smartPlaneTitle">Create plane</strong><span id="smartPlaneSelectionSummary">Select geometry to begin</span></div>
               </div>
-              <button id="smartPlaneChangeMethod" class="smart-plane-change" type="button" aria-controls="smartPlaneMethodRow" hidden>Change</button>
               <div class="smart-plane-actions">
                 <button id="smartPickOptionsToggle" class="smart-plane-pick-toggle" type="button" aria-label="Picking options" aria-expanded="false" aria-controls="smartPickOptions"><svg class="icon" aria-hidden="true"><use href="#icon-select"></use></svg><span id="smartPickSummary">Auto pick</span><svg class="icon smart-plane-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg></button>
-                <button id="smartPlaneUndo" class="smart-plane-icon-button" type="button" aria-label="Undo last pick" title="Undo last pick" hidden><svg class="icon" aria-hidden="true"><use href="#icon-undo"></use></svg></button>
                 <button id="smartPlaneClear" class="smart-plane-icon-button" type="button" aria-label="Clear picked geometry" title="Clear picked geometry" hidden><svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
                 <button id="smartPlaneSave" type="button" hidden><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg>Create plane</button>
               </div>

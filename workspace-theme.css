@@ -1392,7 +1392,6 @@ input:checked + .toggle-track,
 .smart-plane-toolbar button:disabled { opacity: .45; cursor: not-allowed; }
 .smart-plane-toolbar button[aria-pressed="true"] { background: #858585; color: #171717; border-color: #aaaaaa; }
 .smart-plane-toolbar .smart-plane-icon-button { width: 30px; padding: 0; background: transparent; border-color: transparent; }
-.smart-plane-toolbar .smart-plane-change { min-height: 30px; padding: 4px 8px; background: transparent; border-color: #777777; font-size: 11px; }
 .smart-plane-toolbar .smart-plane-pick-toggle { background: transparent; border-color: transparent; color: #dddddd; }
 .smart-plane-pick-toggle .smart-plane-chevron { width: 11px; height: 11px; }
 .smart-plane-pick-toggle[aria-expanded="true"] .smart-plane-chevron { transform: rotate(180deg); }
@@ -1450,11 +1449,11 @@ input:checked + .toggle-track,
   .workspace:has(.view-toolbar.is-plane-picking) .coordinate-dock .view-cube { bottom: calc(64px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom)); }
 }
 @container plane-toolbar (max-width: 600px) {
-  .smart-plane-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+  .smart-plane-header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; }
+  .smart-plane-header:has(#smartPlaneBack[hidden]) .smart-plane-heading { grid-column: 1 / -1; }
   .smart-plane-actions { grid-column: 1 / -1; }
   .smart-plane-pick-toggle { margin-right: auto; }
   #smartPlaneSave { margin-left: auto; }
-  .smart-plane-toolbar .smart-plane-change { min-height: 32px; }
   .smart-plane-parameters label { flex-direction: column; align-items: stretch; white-space: normal; }
   .smart-plane-parameters .smart-plane-reference-field { flex-basis: 155px; }
   .smart-plane-parameters .smart-plane-number-field { flex-basis: 96px; }
