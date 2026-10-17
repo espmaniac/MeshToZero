@@ -5904,6 +5904,7 @@ function renderSmartMethods(selected, references) {
   smartMethodRow.hidden = !choosing;
   smartToolbar.dataset.step = choosing ? "choose" : editing ? "configure" : "pick";
   smartToolbar.dataset.method = selected?.id || "";
+  smartToolbar.dataset.empty = String(!references.length);
   smartTitle.textContent = smartChoosingMethod ? "Change construction" : selected?.label || "Create plane";
   smartTitleIcon.setAttribute("href", editing ? selected.icon : "#icon-plane");
   const counts = new Map();
@@ -5935,6 +5936,7 @@ function renderSmartMethods(selected, references) {
       const description = document.createElement("small");
       description.id = "smart-method-description-" + candidate.id;
       description.textContent = SMART_METHOD_DESCRIPTIONS[candidate.id];
+      button.title = SMART_METHOD_DESCRIPTIONS[candidate.id];
       button.setAttribute("aria-describedby", description.id);
       copy.append(label, description);
       button.append(copy);

@@ -75,6 +75,13 @@ def run(base_url):
                 assert set(expected).issubset(actual), (expected, actual, status())
                 assert not set(excluded).intersection(actual), (excluded, actual, status())
                 assert page.locator("#smartPlaneMethodRow").is_visible()
+                # The chooser should leave the model exposed, including the
+                # five-method surface selection that previously filled a panel.
+                assert page.locator(".view-toolbar").bounding_box()["height"] <= 120
+                assert page.locator("[data-smart-method]:visible").count() == len(actual)
+                assert page.locator(".view-toolbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+                for method in actual:
+                    assert page.locator(f'[data-smart-method="{method}"]').get_attribute("title")
 
             def assert_empty():
                 actual = state()
@@ -355,8 +362,8 @@ def run(base_url):
             save("Point-cloud local fit")
             print("PASS model replacement empties contextual state; cloud offers fitting and hides unsupported Tangent", flush=True)
 
-            # The only chooser is the visible card group. Changing a method
-            # retains its values until another card is selected, and Escape
+            # The only chooser is the compact method-button group. Changing a method
+            # retains its values until another method is selected, and Escape
             # returns to the editor instead of closing the entire tool.
             add_edge()
             choose_method("angle")
@@ -431,6 +438,7 @@ def run(base_url):
                     taps = [(170, 280), (230, 300)] if width == 390 else [(390, 145), (470, 170)]
                 for x, y in taps:
                     touch_page.touchscreen.tap(x, y)
+                assert touch_page.locator(".view-toolbar").bounding_box()["height"] <= 180
                 touch_page.locator('[data-smart-method="angle"]').tap()
                 assert touch_page.locator("[data-smart-method]:visible").count() == 0
                 touch_page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
