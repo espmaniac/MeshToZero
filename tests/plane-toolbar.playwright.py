@@ -66,8 +66,8 @@ def run(base_url):
                 }""")
 
             def method_ids():
-                return page.locator("#smartPlaneMethod option").evaluate_all(
-                    "options => options.map(option => option.value).filter(Boolean)"
+                return page.locator("#smartPlaneMethods [data-smart-method]").evaluate_all(
+                    "buttons => buttons.map(button => button.dataset.smartMethod)"
                 )
 
             def assert_methods(expected, excluded=()):
@@ -82,15 +82,33 @@ def run(base_url):
                 assert page.locator("#smartPlaneMethodRow").is_hidden()
                 assert page.locator("#smartPlaneParameters").is_hidden()
                 assert page.locator("[data-smart-method]:visible").count() == 0
-                assert page.locator("#smartPlaneMethod").input_value() == ""
+                assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == ""
+                assert page.locator("#smartPlaneChangeMethod").is_hidden()
+                assert page.locator("#smartPlaneAdvancedToggle").is_hidden()
                 assert method_ids() == []
                 assert page.locator("#smartPlaneSave").is_disabled()
                 assert page.evaluate("window.__workflowTest.viewport.smartPickIntent") is None
 
             def choose_method(method):
                 assert method in method_ids(), (method, method_ids(), status())
-                page.locator("#smartPlaneMethod").select_option(method)
-                assert page.locator(f'[data-smart-method="{method}"]').get_attribute("aria-pressed") == "true"
+                if page.locator("#smartPlaneMethodRow").is_hidden():
+                    page.locator("#smartPlaneChangeMethod").click()
+                page.locator(f'[data-smart-method="{method}"]').click()
+                assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == method
+                assert page.locator("#smartPlaneMethodRow").is_hidden()
+                assert page.locator("[data-smart-method]:visible").count() == 0
+                assert page.locator("#smartPlaneAdvanced").is_hidden()
+                assert page.locator("#smartPlaneChangeMethod").is_visible() == (len(method_ids()) > 1)
+
+            def pick_filter(value):
+                if page.locator("#smartPickOptions").is_hidden():
+                    page.locator("#smartPickOptionsToggle").click()
+                page.locator("#smartPickFilter").select_option(value)
+
+            def set_offset(value):
+                if page.locator("#smartPlaneOffset").is_hidden():
+                    page.locator("#smartPlaneAdvancedToggle").click()
+                page.locator("#smartPlaneOffset").fill(value)
 
             def add_points(points):
                 for point in points:
@@ -114,7 +132,7 @@ def run(base_url):
                 }""", [first, second])
 
             def add_plane(plane_id):
-                page.locator("#smartPickFilter").select_option("plane")
+                pick_filter("plane")
                 page.locator("#smartReferencePlane").select_option(plane_id)
                 page.locator("#smartAddReference").click()
 
@@ -124,6 +142,8 @@ def run(base_url):
             def save(name):
                 before = state()
                 assert_ready()
+                if page.locator("#smartPlaneName").is_hidden():
+                    page.locator("#smartPlaneAdvancedToggle").click()
                 page.locator("#smartPlaneName").fill(name)
                 page.locator("#smartPlaneSave").click()
                 actual = page.evaluate("""() => {
@@ -152,6 +172,7 @@ def run(base_url):
 
             # A lone point does not expose unrelated construction choices. The
             # second point makes path and reference-plane constructions relevant.
+            page.locator("#smartPickOptionsToggle").click()
             page.locator("#smartModelCenter").click()
             assert method_ids() == ["local-best-fit"], method_ids()
             page.locator("#smartPlaneClear").click()
@@ -160,7 +181,7 @@ def run(base_url):
             assert "angle" not in method_ids()
             add_points([(2, 0, 0)])
             assert_methods(["along-path", "angle", "perpendicular"], ["three-points", "two-edges"])
-            assert page.locator("#smartPlaneMethod").input_value() == ""
+            assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == ""
             assert not state()["preview"]
             choose_method("angle")
             assert page.locator("#smartAngleField").is_visible()
@@ -170,7 +191,7 @@ def run(base_url):
             assert_ready()
             page.locator("#smartPlaneUndo").click()
             assert not state()["preview"]
-            assert page.locator("#smartPlaneMethod").input_value() == "angle"
+            assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == "angle"
             assert page.locator("#smartPlaneAngle").input_value() == "37"
             add_points([(2, 0, 0)])
             assert_ready()
@@ -195,7 +216,7 @@ def run(base_url):
             page.locator("#smartPlaneUndo").click()
             assert_empty()
             add_edge()
-            assert page.locator("#smartPlaneMethod").input_value() == ""
+            assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == ""
             choose_method("angle")
             save("Edge angle")
             print("PASS edge-first Angle and Undo-to-zero clears explicit method intent", flush=True)
@@ -207,7 +228,7 @@ def run(base_url):
             add_points([(0, 0, 0), (2, 0, 0), (0, 3, 0)])
             choose_method("best-fit")
             add_points([(1, 1, 0.2)])
-            assert page.locator("#smartPlaneMethod").input_value() == "best-fit"
+            assert page.locator("#smartPlaneToolbar").get_attribute("data-method") == "best-fit"
             save("Best fit samples")
             add_edge()
             add_edge((0, 3, 0), (2, 3, 0))
@@ -225,7 +246,7 @@ def run(base_url):
                 else:
                     add_edge()
                 choose_method("along-path")
-                page.locator("#smartPlaneOffset").fill("0")
+                set_offset("0")
                 for invalid in ["-1", "101", "1e309"]:
                     page.locator("#smartPathPosition").fill(invalid)
                     assert not state()["preview"]
@@ -247,7 +268,7 @@ def run(base_url):
 
             # Picking a surface offers only relevant constructions, including a
             # Midplane workflow whose second reference is chosen in the toolbar.
-            page.locator("#smartPickFilter").select_option("surface")
+            pick_filter("surface")
             for method in ["planar-surface", "tangent"]:
                 page.mouse.click(720, 350)
                 assert_methods(["planar-surface", "tangent", "offset", "midplane"], ["angle", "three-points", "two-edges"])
@@ -262,7 +283,7 @@ def run(base_url):
             assert not state()["preview"]
             choose_method("offset")
             page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
-            page.locator("#smartPlaneOffset").fill("5")
+            set_offset("5")
             assert_ready()
             assert abs(state()["preview"]["origin"][2] - 5) < 1e-9
             offset_plane = save("Offset from world")
@@ -273,7 +294,7 @@ def run(base_url):
             choose_method("midplane")
             page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
             page.locator("#smartMethodReferenceB").select_option("saved:" + offset_plane["id"])
-            page.locator("#smartPlaneOffset").fill("0")
+            set_offset("0")
             assert_ready()
             assert abs(state()["preview"]["origin"][2] - 2.5) < 1e-9
             page.locator("#smartMethodReferenceB").select_option("saved:world-yz")
@@ -326,7 +347,7 @@ def run(base_url):
                 return { x: rect.left + (center.x + 1) * rect.width / 2,
                     y: rect.top + (1 - center.y) * rect.height / 2 };
             }""")
-            page.locator("#smartPickFilter").select_option("surface")
+            pick_filter("surface")
             page.mouse.click(cloud_click["x"], cloud_click["y"])
             assert state()["references"] == ["surface"]
             assert_methods(["planar-surface", "local-best-fit", "offset", "midplane"], ["tangent", "angle"])
@@ -334,26 +355,100 @@ def run(base_url):
             save("Point-cloud local fit")
             print("PASS model replacement empties contextual state; cloud offers fitting and hides unsupported Tangent", flush=True)
 
-            # Clearing an explicit choice returns to contextual suggestions,
-            # rather than displaying all methods or silently choosing a path.
+            # The only chooser is the visible card group. Changing a method
+            # retains its values until another card is selected, and Escape
+            # returns to the editor instead of closing the entire tool.
             add_edge()
             choose_method("angle")
-            page.locator("#smartPlaneMethod").select_option("")
+            assert page.locator("#smartPlaneMethod").count() == 0
+            assert page.locator("#smartMethodReferenceA").evaluate("e => e === document.activeElement")
+            page.locator("#smartPlaneAngle").fill("31")
+            page.locator("#smartPlaneChangeMethod").click()
             assert_methods(["along-path", "angle", "perpendicular"])
-            assert page.locator("#smartPlaneMethod").input_value() == ""
-            assert not state()["preview"]
+            assert page.locator("#smartPlaneParameters").is_hidden()
+            assert page.locator("#smartPlaneSave").is_hidden()
+            assert page.locator("#createPlaneButton").is_disabled()
+            assert page.locator('[data-smart-method="angle"]').evaluate("e => e === document.activeElement")
+            page.keyboard.press("Escape")
+            assert page.locator("#planeWorkbench").is_visible()
+            assert page.locator("#smartPlaneMethodRow").is_hidden()
+            assert page.locator("#smartPlaneAngle").input_value() == "31"
+            assert_ready()
+            page.locator("#smartPlaneAdvancedToggle").click()
+            assert page.locator("#smartPlaneName").is_visible()
+            page.keyboard.press("Escape")
+            assert page.locator("#smartPlaneAdvanced").is_hidden()
+            assert page.locator("#planeWorkbench").is_visible()
+            choose_method("along-path")
+            assert page.locator("#smartAngleField").is_hidden()
+            assert page.locator("#smartMethodReferenceAField").is_hidden()
+            assert page.locator("#smartPathField").is_visible()
             page.locator("#smartPlaneClear").click()
             assert_empty()
+            assert page.locator("#smartPickOptionsToggle").evaluate("e => e === document.activeElement")
             page.keyboard.press("Escape")
             assert page.locator(".view-navigation").is_visible()
             assert not state()["preview"]
-            print("PASS empty method restores contextual suggestions; Clear and close dispose preview and restore navigation", flush=True)
+            print("PASS focused method editor, Change/Back/Escape, optional settings, keyboard focus and Clear", flush=True)
 
             result = page.evaluate("""async () =>
                 (await import('./tests/smart-plane.browser.js')).runSmartPlaneTests()
             """)
             assert not errors, errors
             print("PASS geometry checks:", result["passed"], flush=True)
+
+            # Exercise real touch picks and visible controls at narrow widths,
+            # including a tablet whose inspector reduces toolbar space.
+            page.close()
+            for width, height in [(390, 844), (844, 390), (768, 1024)]:
+                touch_page = browser.new_page(viewport={"width": width, "height": height}, has_touch=True)
+                touch_page.on("pageerror", lambda error: errors.append(str(error)))
+                touch_page.route("**/app.js", lambda route: route.fulfill(
+                    status=200, content_type="text/javascript", body=app_source,
+                ))
+                touch_page.goto(base_url.rstrip("/") + "/", wait_until="networkidle")
+                touch_page.locator("#planeButton").tap()
+                if touch_page.locator("#mobilePanelToggle").is_visible():
+                    touch_page.locator("#mobilePanelToggle").tap()
+                touch_page.locator("#smartPickOptionsToggle").tap()
+                touch_page.locator("#smartPickFilter").select_option("point")
+                assert touch_page.locator("#smartPickOptions").is_hidden()
+                if width == 768:
+                    taps = touch_page.evaluate("""() => {
+                        const viewport = window.__workflowTest.viewport;
+                        const bounds = viewport.getLocalBoundsInfo();
+                        const rect = viewport.canvas.getBoundingClientRect();
+                        return [-0.2, 0.2].map(fraction => {
+                            const point = bounds.center.clone();
+                            point.x += bounds.size.x * fraction;
+                            point.z = bounds.max.z;
+                            point.applyMatrix4(viewport.modelRoot.matrixWorld).project(viewport.camera);
+                            return [rect.left + (point.x + 1) * rect.width / 2,
+                                rect.top + (1 - point.y) * rect.height / 2];
+                        });
+                    }""")
+                else:
+                    taps = [(170, 280), (230, 300)] if width == 390 else [(390, 145), (470, 170)]
+                for x, y in taps:
+                    touch_page.touchscreen.tap(x, y)
+                touch_page.locator('[data-smart-method="angle"]').tap()
+                assert touch_page.locator("[data-smart-method]:visible").count() == 0
+                touch_page.locator("#smartMethodReferenceA").select_option("saved:world-xy")
+                touch_page.locator("#smartPlaneAngle").fill("33")
+                for selector in ["#smartPlaneAngle", "#smartMethodReferenceA", "#smartPlaneSave", "#smartPlaneChangeMethod"]:
+                    rect = touch_page.locator(selector).bounding_box()
+                    assert rect["x"] >= 0 and rect["x"] + rect["width"] <= width + 1, (width, selector, rect)
+                assert touch_page.locator(".view-toolbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+                touch_page.locator("#smartPlaneAdvancedToggle").tap()
+                touch_page.locator("#smartPlaneName").fill("Touch plane")
+                touch_page.locator("#smartPlaneSave").tap()
+                assert touch_page.evaluate("window.__workflowTest.viewport.constructionPlanes.at(-1).name") == "Touch plane"
+                assert touch_page.locator("#smartPlaneMethodRow").is_hidden()
+                assert touch_page.locator("#smartPlaneParameters").is_hidden()
+                assert touch_page.evaluate("window.__workflowTest.viewport.planePreview") is None
+                assert not errors, errors
+                print("PASS responsive touch controls and save:", width, height, flush=True)
+                touch_page.close()
         finally:
             browser.close()
 

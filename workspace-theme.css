@@ -1372,81 +1372,103 @@ input:checked + .toggle-track,
 
 .plane-mode-switch [data-plane-mode="pick"] { grid-column: 1 / -1; }
 .smart-plane-toolbar[hidden], .smart-plane-toolbar [hidden] { display: none; }
-.smart-plane-toolbar {
-  display: grid; gap: 6px; width: 100%; min-width: 0;
-}
-.smart-plane-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.smart-plane-controls, .smart-plane-methods, .smart-plane-parameters {
-  display: flex; align-items: center; gap: 6px; min-width: 0;
-  overflow-x: auto; white-space: nowrap; overscroll-behavior-x: contain;
-}
-.smart-plane-controls { flex: 1; }
-.smart-plane-controls label { flex: 0 0 auto; }
-.smart-plane-method-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding-top: 6px; border-top: 1px solid #484848; }
-.smart-plane-method-row > label { flex: 0 0 auto; }
-.smart-plane-methods { flex: 1; padding-bottom: 3px; }
-.smart-plane-parameters { padding-bottom: 3px; }
-.smart-plane-parameters label { flex: 0 0 auto; }
-#smartPlaneMethod { max-width: 150px; }
-#smartMethodReferenceA, #smartMethodReferenceB { max-width: 170px; }
-#smartPlaneName { width: 112px; }
-.smart-plane-methods button.is-suggested { border-color: #bbbbbb; }
-.smart-plane-methods button { flex: 0 0 auto; }
-#smartReferencePlane { max-width: 150px; }
-#smartPlaneSave { border-color: #888888; }
-#smartPlaneSave:not(:disabled) { background: #858585; color: #171717; }
-#smartToolbarStatus { color: #eeeeee; font-size: 11px; line-height: 1.4; }
-.smart-plane-toolbar label { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+.smart-plane-toolbar { display: grid; gap: 12px; width: 100%; min-width: 0; }
+.smart-plane-header { position: sticky; top: 0; z-index: 1; background: #545454; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.smart-plane-heading { display: flex; align-items: center; gap: 10px; min-width: 0; margin-right: auto; }
+.smart-plane-heading-icon { display: grid; place-items: center; flex: 0 0 34px; height: 34px; border-radius: 9px; background: #484848; color: #dddddd; }
+.smart-plane-heading-icon .icon { width: 21px; height: 21px; }
+.smart-plane-heading-copy { display: grid; gap: 3px; min-width: 0; }
+#smartPlaneTitle { color: #eeeeee; font-size: 14px; line-height: 1.2; font-weight: 600; }
+#smartPlaneSelectionSummary { color: #c8c8c8; font-size: 11px; line-height: 1.3; }
+.smart-plane-actions { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
 .smart-plane-toolbar button, .smart-plane-toolbar select, .smart-plane-toolbar input {
-  min-height: 34px; border: 1px solid #707070; border-radius: 4px;
-  padding: 4px 7px; background: #646463; color: #ffffff; font: inherit; font-size: 11px;
+  min-height: 36px; border: 1px solid #777777; border-radius: 7px;
+  padding: 7px 10px; background: #646463; color: #eeeeee; font: inherit; font-size: 12px;
 }
-.smart-plane-toolbar button { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; cursor: pointer; }
-.smart-plane-toolbar button .icon { width: 16px; height: 16px; }
-.smart-plane-toolbar input { width: 70px; }
-.smart-plane-toolbar button:disabled, .smart-plane-toolbar input:disabled { opacity: .45; cursor: not-allowed; }
-.smart-plane-toolbar button[aria-pressed="true"] { background: #858585; color: #171717; }
+.smart-plane-toolbar button { display: inline-flex; justify-content: center; align-items: center; gap: 6px; cursor: pointer; }
+.smart-plane-toolbar button:hover:not(:disabled) { background: #70706f; border-color: #929292; }
+.smart-plane-toolbar :is(button, input, select):focus-visible { outline: 2px solid #dddddd; outline-offset: 2px; }
+.smart-plane-toolbar button .icon { width: 16px; height: 16px; flex: 0 0 auto; }
+.smart-plane-toolbar button:disabled { opacity: .45; cursor: not-allowed; }
+.smart-plane-toolbar button[aria-pressed="true"] { background: #858585; color: #171717; border-color: #aaaaaa; }
+.smart-plane-toolbar .smart-plane-icon-button { width: 36px; padding: 0; background: transparent; border-color: transparent; }
+.smart-plane-toolbar .smart-plane-change { min-height: 30px; padding: 4px 8px; background: transparent; border-color: #777777; font-size: 11px; }
+.smart-plane-toolbar .smart-plane-pick-toggle { background: transparent; border-color: transparent; color: #dddddd; }
+.smart-plane-pick-toggle .smart-plane-chevron { width: 11px; height: 11px; }
+.smart-plane-pick-toggle[aria-expanded="true"] .smart-plane-chevron { transform: rotate(180deg); }
+.smart-plane-toolbar #smartPlaneSave:not(:disabled) { background: #bcbcbc; border-color: #cccccc; color: #202020; }
+.smart-plane-toolbar #smartPlaneSave:hover:not(:disabled) { background: #cccccc; }
+.smart-plane-toolbar #smartPlaneSave { font-weight: 600; white-space: nowrap; }
+.smart-plane-toolbar label { display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 0; color: #dddddd; font-size: 11px; line-height: 1.25; }
+.smart-plane-toolbar :is(input, select) { min-width: 0; width: 100%; background: #484848; border-color: #727272; }
+.smart-plane-toolbar input[type="number"] { font-variant-numeric: tabular-nums; }
+.smart-plane-pick-options, .smart-plane-parameters, .smart-plane-advanced { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; min-width: 0; }
+.smart-plane-pick-options, .smart-plane-advanced { padding: 12px; border-radius: 9px; background: #4e4d4d; }
+.smart-plane-pick-options label { flex: 1 1 130px; }
+#smartReferenceField { flex: 2 1 190px; }
+.smart-plane-method-row { min-width: 0; }
+.smart-plane-section-label { margin: 0 0 8px; color: #dddddd; font-size: 11px; font-weight: 500; }
+.smart-plane-methods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.smart-plane-methods button { justify-content: flex-start; gap: 10px; min-height: 62px; padding: 10px 12px; text-align: left; border-radius: 9px; background: #484848; border-color: #707070; }
+.smart-plane-methods button .icon { width: 23px; height: 23px; }
+.smart-plane-method-copy { display: grid; gap: 4px; min-width: 0; }
+.smart-plane-method-copy strong { font-size: 12px; font-weight: 500; line-height: 1.3; }
+.smart-plane-method-copy small { font-size: 10px; color: #c5c5c5; line-height: 1.35; }
+.smart-plane-methods button[aria-pressed="true"] .smart-plane-method-copy small { color: #252525; }
+.smart-plane-parameters .smart-plane-reference-field { flex: 1 1 185px; }
+.smart-plane-number-field, #smartPrimaryOffsetSlot, #smartExtraOffsetSlot { flex: 0 1 130px; min-width: 0; }
+#smartPrimaryOffsetSlot:empty, #smartExtraOffsetSlot:empty { display: none; }
+.smart-plane-name-field { flex: 1 1 160px; }
+.smart-plane-footer { display: flex; align-items: center; gap: 12px; min-width: 0; }
+#smartToolbarStatus { flex: 1; min-width: 0; color: #d2d2d2; font-size: 11px; line-height: 1.45; }
+#smartToolbarStatus[data-state="error"] { color: #f1d0a0; }
+.smart-plane-toolbar #smartPlaneAdvancedToggle { min-height: 30px; padding: 4px 6px; flex: 0 0 auto; border-color: transparent; background: transparent; color: #dddddd; font-size: 11px; }
 #smartPlaneStatus { font-size: 12px; color: #eeeeee; }
-@media (max-width: 700px), (max-width: 900px) and (max-height: 500px) {
-  .smart-plane-toolbar button, .smart-plane-toolbar select, .smart-plane-toolbar input { min-height: 40px; }
-  .smart-plane-toolbar input, .smart-plane-toolbar select { font-size: 16px; }
-  #smartPlaneMethod { max-width: 135px; }
-  #smartMethodReferenceA, #smartMethodReferenceB { max-width: 150px; }
-}
-
 .view-navigation { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
 .view-toolbar.is-plane-picking .view-navigation { display: none; }
 .view-toolbar.is-plane-picking {
   top: auto; bottom: calc(var(--cad-statusbar-height) + 12px);
-  display: flex; flex-direction: column; gap: 4px; height: auto;
+  container: plane-toolbar / inline-size;
+  display: flex; flex-direction: column; height: auto;
   width: min(760px, calc(100% - var(--cad-left-width) - var(--cad-inspector-width) - 20px));
-  padding: 10px 14px; border-radius: 22px;
+  max-height: calc(100dvh - 180px); scroll-padding-top: 100px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  padding: 14px; border-radius: 18px; background: #545454; border-color: #777777;
 }
 @media (max-width: 700px), (max-width: 900px) and (max-height: 500px) {
-  .view-toolbar.is-plane-picking {
-    bottom: calc(48px + env(safe-area-inset-bottom));
-    left: 6px; right: 6px; width: calc(100% - 12px); margin-inline: auto;
-  }
-  #smartToolbarStatus { white-space: normal; }
-  .workspace:has(.view-toolbar.is-plane-picking) .right-rail {
-    bottom: calc(60px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom));
-  }
-  .workspace:has(.view-toolbar.is-plane-picking) .coordinate-dock .view-cube {
-    bottom: calc(64px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom));
-  }
+  .smart-plane-toolbar button, .smart-plane-toolbar select, .smart-plane-toolbar input { min-height: 40px; }
+  .smart-plane-toolbar input, .smart-plane-toolbar select { font-size: 16px; }
+  .smart-plane-toolbar .smart-plane-icon-button { width: 40px; }
+  .view-toolbar.is-plane-picking { bottom: calc(48px + env(safe-area-inset-bottom)); left: 6px; right: 6px; width: calc(100% - 12px); margin-inline: auto; padding: 12px; }
+  .workspace:has(.view-toolbar.is-plane-picking) .right-rail { bottom: calc(60px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom)); }
+  .workspace:has(.view-toolbar.is-plane-picking) .coordinate-dock .view-cube { bottom: calc(64px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom)); }
 }
-
-/* Keep model picking possible on phones held horizontally. The contextual
-   method menu replaces the duplicate icon strip after geometry is picked. */
+@container plane-toolbar (max-width: 600px) {
+  .smart-plane-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+  .smart-plane-actions { grid-column: 1 / -1; }
+  .smart-plane-pick-toggle { margin-right: auto; }
+  #smartPlaneSave { margin-left: auto; }
+  .smart-plane-toolbar .smart-plane-change { min-height: 36px; }
+  .smart-plane-methods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .smart-plane-methods button:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .smart-plane-methods button { min-height: 64px; padding: 10px; gap: 8px; }
+  .smart-plane-methods button .icon { width: 20px; height: 20px; }
+  .smart-plane-parameters .smart-plane-reference-field { flex-basis: 155px; }
+  .smart-plane-parameters .smart-plane-number-field { flex-basis: 96px; }
+  .smart-plane-footer { gap: 8px; }
+}
 @media (max-width: 900px) and (max-height: 500px) {
-  .smart-plane-toolbar { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; }
-  .smart-plane-toolbar.has-plane-methods { grid-template-columns: 180px minmax(0, 1fr) auto; }
-  .smart-plane-actions { display: contents; }
-  .smart-plane-controls { grid-column: 1; grid-row: 1; }
-  .has-plane-methods .smart-plane-controls { grid-column: 2; }
-  #smartPlaneSave { grid-column: -2 / -1; grid-row: 1; }
-  .smart-plane-method-row { grid-column: 1; grid-row: 1; border: 0; padding: 0; }
-  .smart-plane-methods { display: none; }
-  .smart-plane-parameters { grid-column: 1 / -1; grid-row: 2; }
-  #smartToolbarStatus { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .view-toolbar.is-plane-picking { max-height: 170px; scroll-padding-top: 56px; padding: 9px 12px; }
+  .smart-plane-toolbar { gap: 8px; }
+  .smart-plane-header { gap: 8px; }
+  .smart-plane-heading-copy { gap: 2px; }
+  .smart-plane-methods { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .smart-plane-methods button { min-height: 40px; padding: 6px 8px; gap: 7px; }
+  .smart-plane-method-copy small { display: none; }
+  .smart-plane-methods button .icon { width: 18px; height: 18px; }
+  .smart-plane-section-label { margin-bottom: 5px; }
+  #smartPlaneSelectionSummary { font-size: 10px; }
+  .smart-plane-parameters label { flex-direction: row; align-items: center; white-space: nowrap; gap: 8px; }
+  .smart-plane-parameters .smart-plane-number-field { flex-basis: 140px; }
+  .smart-plane-parameters :is(input, select) { flex: 1; }
+  .smart-plane-footer #smartPlaneAdvancedToggle { min-height: 28px; }
 }
