@@ -5805,7 +5805,8 @@ let smartMethodExplicit = false;
 let smartAnalysisReferences = [];
 let smartCandidates = [];
 let smartVisibleCandidates = [];
-let smartSuggestedMethods = [];
+let smartChoosingMethod = false;
+let smartAdvancedOpen = false;
 let smartPreviewPaused = false;
 let smartConstructionSession = null;
 let smartReferenceChoices = [];
@@ -5823,7 +5824,14 @@ const smartToolbar = document.querySelector("#smartPlaneToolbar");
 const smartStatus = document.querySelector("#smartPlaneStatus");
 const smartMethods = document.querySelector("#smartPlaneMethods");
 const smartMethodRow = document.querySelector("#smartPlaneMethodRow");
-const smartMethodSelect = document.querySelector("#smartPlaneMethod");
+const smartTitle = document.querySelector("#smartPlaneTitle");
+const smartTitleIcon = document.querySelector("#smartPlaneTitleIcon");
+const smartSelectionSummary = document.querySelector("#smartPlaneSelectionSummary");
+const smartChangeMethod = document.querySelector("#smartPlaneChangeMethod");
+const smartPickOptions = document.querySelector("#smartPickOptions");
+const smartPickToggle = document.querySelector("#smartPickOptionsToggle");
+const smartAdvanced = document.querySelector("#smartPlaneAdvanced");
+const smartAdvancedToggle = document.querySelector("#smartPlaneAdvancedToggle");
 const smartReferenceA = document.querySelector("#smartMethodReferenceA");
 const smartReferenceB = document.querySelector("#smartMethodReferenceB");
 const smartName = document.querySelector("#smartPlaneName");
@@ -5850,6 +5858,28 @@ function cachedSmartFit(cache, reference, fit) {
   return result.plane;
 }
 
+const SMART_METHOD_DESCRIPTIONS = {
+  "planar-surface": "Match the selected flat surface",
+  "three-points": "Pass through three points",
+  "best-fit": "Fit a plane to the selected points",
+  tangent: "Touch the surface at this point",
+  "two-edges": "Pass through both edges",
+  "along-path": "Place a plane along the picked line",
+  offset: "Set a distance from a reference",
+  angle: "Rotate from a reference plane",
+  midplane: "Place halfway between two planes",
+  perpendicular: "Build at 90° to a reference plane",
+  "edge-point": "Pass through the edge and point",
+  "local-best-fit": "Fit the area around this point",
+  "offset-point": "Place a parallel plane at the point",
+};
+
+function focusSmartParameters() {
+  const control = [...document.querySelectorAll("#smartPlaneParameters select, #smartPlaneParameters input, #smartPlaneParameters button")]
+    .find((element) => element.getClientRects().length && !element.disabled);
+  (control || (!smartSave.disabled ? smartSave : !smartChangeMethod.hidden ? smartChangeMethod : smartUndo)).focus({ preventScroll: true });
+}
+
 function selectSmartMethod(id, explicit = true) {
   if (smartSelectedMethod !== id) {
     if (smartSelectedMethod) smartOffsets.set(smartSelectedMethod, smartOffset.value);
@@ -5857,44 +5887,74 @@ function selectSmartMethod(id, explicit = true) {
   }
   smartSelectedMethod = id || null;
   smartMethodExplicit = explicit && Boolean(id);
+  smartChoosingMethod = false;
+  smartAdvancedOpen = false;
   smartPreviewPaused = false;
+  smartPickOptions.hidden = true;
+  smartPickToggle.setAttribute("aria-expanded", "false");
   viewport.clearSmartHover();
   viewport.clearSnapPreview();
   updateSmartPlaneUi();
+  focusSmartParameters();
 }
 
-function renderSmartMethods() {
-  const hasMethods = smartVisibleCandidates.length > 0;
-  smartMethodRow.hidden = !hasMethods;
-  smartToolbar.classList.toggle("has-plane-methods", hasMethods);
+function renderSmartMethods(selected, references) {
+  const choosing = smartVisibleCandidates.length > 0 && (!selected || smartChoosingMethod);
+  const editing = Boolean(selected && !choosing);
+  smartMethodRow.hidden = !choosing;
+  smartToolbar.dataset.step = choosing ? "choose" : editing ? "configure" : "pick";
+  smartToolbar.dataset.method = selected?.id || "";
+  smartTitle.textContent = smartChoosingMethod ? "Change construction" : selected?.label || "Create plane";
+  smartTitleIcon.setAttribute("href", editing ? selected.icon : "#icon-plane");
+  const counts = new Map();
+  for (const reference of references) {
+    const kind = reference.kind || "point";
+    counts.set(kind, (counts.get(kind) || 0) + 1);
+  }
+  smartSelectionSummary.textContent = references.length
+    ? [...counts].map(([kind, count]) => count + " " + kind + (count === 1 ? "" : "s")).join(" · ") + " selected"
+    : "Select a face, edge or point";
+  smartChangeMethod.hidden = !selected || smartVisibleCandidates.length < 2;
+  smartChangeMethod.textContent = choosing ? "Back" : "Change";
+  smartChangeMethod.setAttribute("aria-label", choosing ? "Return to " + selected?.label : "Change construction method");
+  smartChangeMethod.setAttribute("aria-expanded", String(choosing));
   const ids = smartVisibleCandidates.map((candidate) => candidate.id).join(",");
   if (smartMethods.dataset.methods !== ids) {
     smartMethods.dataset.methods = ids;
     smartMethods.replaceChildren();
-    smartMethodSelect.replaceChildren(new Option("Choose method", ""));
     for (const candidate of smartVisibleCandidates) {
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.smartMethod = candidate.id;
-      button.title = candidate.label;
       button.setAttribute("aria-label", candidate.label);
       button.innerHTML = '<svg class="icon" aria-hidden="true"><use href="' + candidate.icon + '"></use></svg>';
-      const label = document.createElement("span");
+      const copy = document.createElement("span");
+      copy.className = "smart-plane-method-copy";
+      const label = document.createElement("strong");
       label.textContent = candidate.label;
-      button.append(label);
+      const description = document.createElement("small");
+      description.id = "smart-method-description-" + candidate.id;
+      description.textContent = SMART_METHOD_DESCRIPTIONS[candidate.id];
+      button.setAttribute("aria-describedby", description.id);
+      copy.append(label, description);
+      button.append(copy);
       button.addEventListener("click", () => selectSmartMethod(candidate.id));
       smartMethods.append(button);
-      smartMethodSelect.add(new Option(candidate.label, candidate.id));
     }
   }
-  smartMethodSelect.value = smartSelectedMethod || "";
   for (const button of smartMethods.querySelectorAll("[data-smart-method]")) {
     button.setAttribute("aria-pressed", String(button.dataset.smartMethod === smartSelectedMethod));
-    const suggested = smartSuggestedMethods.includes(button.dataset.smartMethod);
-    button.classList.toggle("is-suggested", suggested);
-    button.title = (suggested ? "Matches picked geometry: " : "") +
-      smartCandidates.find((candidate) => candidate.id === button.dataset.smartMethod).label;
   }
+  smartSave.hidden = !editing;
+  smartAdvancedToggle.hidden = !editing;
+  smartAdvancedToggle.setAttribute("aria-expanded", String(editing && smartAdvancedOpen));
+  smartAdvanced.hidden = !editing || !smartAdvancedOpen;
+  document.querySelector("#smartPickSummary").textContent = smartFilter.value === "auto"
+    ? "Auto pick" : smartFilter.selectedOptions[0].textContent;
+  const offsetSlot = document.querySelector(selected?.id === "offset" ? "#smartPrimaryOffsetSlot" : "#smartExtraOffsetSlot");
+  const offsetField = document.querySelector("#smartOffsetField");
+  if (offsetField.parentElement !== offsetSlot) offsetSlot.append(offsetField);
+  return { choosing, editing };
 }
 
 function populateSmartReferencePlanes() {
@@ -5980,6 +6040,10 @@ function updateSmartPlaneUi() {
   smartToolbar.hidden = !enabled;
   smartToolbar.closest(".view-toolbar").classList.toggle("is-plane-picking", enabled);
   if (!enabled || !viewport) {
+    smartChoosingMethod = false;
+    smartAdvancedOpen = false;
+    smartPickOptions.hidden = true;
+    smartPickToggle.setAttribute("aria-expanded", "false");
     if (viewport) { viewport.smartPickIntent = null; viewport.setPlanePreview(null); }
     return;
   }
@@ -5987,6 +6051,8 @@ function updateSmartPlaneUi() {
     smartConstructionSession = viewport.constructionSession;
     smartSelectedMethod = null;
     smartMethodExplicit = false;
+    smartChoosingMethod = false;
+    smartAdvancedOpen = false;
     smartPreviewPaused = false;
     smartReferenceExplicit.A = smartReferenceExplicit.B = false;
     smartReferenceA.value = smartReferenceB.value = "";
@@ -6007,7 +6073,6 @@ function updateSmartPlaneUi() {
   };
   const inferred = getPickedPlaneCandidates(worldReferences, fitters);
   const available = inferred.candidates.filter((candidate) => !candidate.error);
-  smartSuggestedMethods = available.map((candidate) => candidate.id);
   smartCandidates = getPlaneConstructionWorkflows(worldReferences, fitters).workflows;
   const suggestedIds = getSuggestedPlaneWorkflowIds(references);
   smartSelectionHint = inferred.hint;
@@ -6017,6 +6082,8 @@ function updateSmartPlaneUi() {
     if (smartSelectedMethod) smartOffsets.set(smartSelectedMethod, smartOffset.value);
     smartSelectedMethod = null;
     smartMethodExplicit = false;
+    smartChoosingMethod = false;
+    smartAdvancedOpen = false;
     smartReferenceExplicit.A = smartReferenceExplicit.B = false;
     smartReferenceA.value = smartReferenceB.value = "";
     smartPlaneFlipped = false;
@@ -6033,16 +6100,17 @@ function updateSmartPlaneUi() {
   smartVisibleCandidates = smartCandidates.filter((candidate) => suggestedIds.includes(candidate.id) ||
     (references.length > 0 && smartMethodExplicit && candidate.id === smartSelectedMethod));
   viewport.smartPickIntent = smartMethodExplicit ? smartSelectedMethod : null;
-  renderSmartMethods();
   updateSmartMethodReferences(references, worldReferences, fitSurface);
   const selected = smartCandidates.find((candidate) => candidate.id === smartSelectedMethod);
+  const { choosing, editing } = renderSmartMethods(selected, references);
   const parameters = selected?.parameters || [];
   document.querySelector("#smartReferenceField").hidden = smartAddReference.hidden = smartFilter.value !== "plane";
   document.querySelector("#smartMethodReferenceAField").hidden = !parameters.includes("referenceA");
   document.querySelector("#smartMethodReferenceBField").hidden = !parameters.includes("referenceB");
   document.querySelector("#smartAngleField").hidden = !parameters.includes("angle");
   document.querySelector("#smartPathField").hidden = !parameters.includes("pathPosition");
-  document.querySelector("#smartPlaneParameters").hidden = !selected;
+  document.querySelector("#smartPlaneParameters").hidden = !editing ||
+    (!parameters.some((parameter) => ["referenceA", "referenceB", "angle", "pathPosition"].includes(parameter)) && selected.id !== "offset");
   document.querySelector("#smartOffsetField").hidden = smartFlip.hidden = !selected;
   const referenceA = smartReferenceChoices.find((choice) => choice.key === smartReferenceA.value);
   const referenceB = smartReferenceChoices.find((choice) => choice.key === smartReferenceB.value);
@@ -6050,13 +6118,14 @@ function updateSmartPlaneUi() {
     ? [referenceA, ...(parameters.includes("referenceB") ? [referenceB] : [])].filter(Boolean)
       .map((reference) => ({ kind: "plane", sourceSpace: reference.sourceSpace })) : references;
   const offsetSpace = getPickedPlaneSpace(selected?.id, spaceReferences);
-  document.querySelector("#smartOffsetLabel").textContent = (selected?.id === "offset" ? "Distance" : "Offset") + " (" + offsetSpace + ")";
+  document.querySelector("#smartOffsetLabel").textContent = (selected?.id === "offset" ? "Distance" : "Extra offset") + " · " + offsetSpace + " (mm)";
   smartOffset.setAttribute("aria-label", "Plane offset in " + offsetSpace + " millimeters");
   smartReversePath.hidden = selected?.id !== "along-path";
   smartReversePath.setAttribute("aria-pressed", String(smartPathReversed));
   smartModelCenter.hidden = !["auto", "point"].includes(smartFilter.value);
   smartModelCenter.disabled = !viewport.renderModel || references.some((reference) => reference.source === "model-center") ||
     references.length >= PLANE_METHODS["smart-pick"].maximum;
+  smartUndo.hidden = smartClear.hidden = !references.length;
   smartUndo.disabled = smartClear.disabled = !references.length;
   smartFlip.setAttribute("aria-pressed", String(smartPlaneFlipped));
   smartPlaneDefinition = null;
@@ -6092,19 +6161,69 @@ function updateSmartPlaneUi() {
   viewport.setPlanePreview(smartPlaneDefinition);
   const summary = references.map((reference) => reference.label || reference.kind || "point").join(", ");
   selectionCount.textContent = references.length + (references.length === 1 ? " reference: " : " references: ") + summary;
-  document.querySelector("#smartToolbarStatus").textContent = (references.length ? references.length + " picked · " : "") + smartStatus.textContent;
+  const toolbarStatus = document.querySelector("#smartToolbarStatus");
+  toolbarStatus.dataset.state = !choosing && selected && !smartPlaneDefinition ? "error" : smartPlaneDefinition ? "ready" : "waiting";
+  toolbarStatus.textContent = choosing ? "Choose a construction to preview a plane."
+    : !references.length ? "Click the model, or use picking options."
+      : smartPlaneDefinition ? (selected.id === "angle"
+        ? "Preview ready · Plane angle " + smartPlaneDefinition.angleToReference.toFixed(3) + "°"
+        : "Preview only · Ready to create.")
+        : smartStatus.textContent.replace((selected?.label || "") + " — ", "");
   selectionInstruction.textContent = smartStatus.textContent;
-  createPlaneButton.disabled = smartSave.disabled = !smartPlaneDefinition;
+  createPlaneButton.disabled = smartSave.disabled = !smartPlaneDefinition || choosing;
   smartFlip.disabled = !smartPlaneDefinition;
 }
-smartMethodSelect.addEventListener("change", () => selectSmartMethod(smartMethodSelect.value));
+smartChangeMethod.addEventListener("click", () => {
+  smartChoosingMethod = !smartChoosingMethod;
+  updateSmartPlaneUi();
+  if (smartChoosingMethod) {
+    (smartMethods.querySelector('[aria-pressed="true"]') || smartMethods.querySelector("button"))?.focus({ preventScroll: true });
+  } else focusSmartParameters();
+});
+smartPickToggle.addEventListener("click", () => {
+  smartPickOptions.hidden = !smartPickOptions.hidden;
+  smartPickToggle.setAttribute("aria-expanded", String(!smartPickOptions.hidden));
+});
+smartAdvancedToggle.addEventListener("click", () => {
+  smartAdvancedOpen = !smartAdvancedOpen;
+  updateSmartPlaneUi();
+});
+smartToolbar.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (smartChoosingMethod && smartSelectedMethod) {
+    event.preventDefault();
+    event.stopPropagation();
+    smartChoosingMethod = false;
+    updateSmartPlaneUi();
+    smartChangeMethod.focus({ preventScroll: true });
+  } else if (!smartPickOptions.hidden) {
+    event.preventDefault();
+    event.stopPropagation();
+    smartPickOptions.hidden = true;
+    smartPickToggle.setAttribute("aria-expanded", "false");
+    smartPickToggle.focus({ preventScroll: true });
+  } else if (smartAdvancedOpen) {
+    event.preventDefault();
+    event.stopPropagation();
+    smartAdvancedOpen = false;
+    updateSmartPlaneUi();
+    smartAdvancedToggle.focus({ preventScroll: true });
+  }
+});
 smartFilter.addEventListener("change", () => {
   viewport.smartPickFilter = smartFilter.value;
   viewport.clearSmartHover();
   viewport.clearSnapPreview();
+  if (smartFilter.value !== "plane") {
+    smartPickOptions.hidden = true;
+    smartPickToggle.setAttribute("aria-expanded", "false");
+    smartPickToggle.focus({ preventScroll: true });
+  }
   updateSmartPlaneUi();
 });
 smartAddReference.addEventListener("click", () => {
+  smartPickOptions.hidden = true;
+  smartPickToggle.setAttribute("aria-expanded", "false");
   viewport.addConstructionReference(viewport.getSmartPlaneReference(smartReferencePlane.value));
 });
 for (const [slot, select] of [["A", smartReferenceA], ["B", smartReferenceB]]) {
@@ -6126,16 +6245,26 @@ planeNameInput.addEventListener("input", () => {
     updateSmartPlaneUi();
   }
 });
-smartModelCenter.addEventListener("click", () => viewport.selectModelCenterReference());
+smartModelCenter.addEventListener("click", () => {
+  smartPickOptions.hidden = true;
+  smartPickToggle.setAttribute("aria-expanded", "false");
+  viewport.selectModelCenterReference();
+});
 smartReversePath.addEventListener("click", () => { smartPathReversed = !smartPathReversed; smartPreviewPaused = false; updateSmartPlaneUi(); });
 smartUndo.addEventListener("click", () => viewport.undoSmartPick());
-smartClear.addEventListener("click", () => viewport.clearConstructionSelection());
+smartClear.addEventListener("click", () => {
+  viewport.clearConstructionSelection();
+  smartPickToggle.focus({ preventScroll: true });
+});
 smartFlip.addEventListener("click", () => { smartPlaneFlipped = !smartPlaneFlipped; updateSmartPlaneUi(); });
 for (const input of [smartOffset, smartAngle, smartPathPosition]) input.addEventListener("input", () => {
   smartPreviewPaused = false;
   updateSmartPlaneUi();
 });
-smartSave.addEventListener("click", () => createPlaneButton.click());
+smartSave.addEventListener("click", () => {
+  createPlaneButton.click();
+  smartPickToggle.focus({ preventScroll: true });
+});
 new ResizeObserver(([entry]) => {
   workspace.style.setProperty("--plane-toolbar-height", Math.ceil(entry.target.getBoundingClientRect().height) + "px");
 }).observe(smartToolbar.closest(".view-toolbar"));
@@ -6823,7 +6952,7 @@ createPlaneButton.addEventListener("click", () => {
   if (!viewport) return;
   if (activePlaneMethod === "smart-pick") {
     updateSmartPlaneUi();
-    if (!smartPlaneDefinition) return;
+    if (!smartPlaneDefinition || smartChoosingMethod) return;
     const beforeState = captureEditState();
     viewport.createConstructionPlane({ ...smartPlaneDefinition, name: planeNameInput.value });
     recordEdit("Create picked plane", beforeState);
