@@ -5435,6 +5435,8 @@ const TOPBAR_COMPACT_STEPS = [
   "is-brand-icon-only",
   "is-actions-in-statusbar",
   "is-transform-labels-hidden",
+  "is-short-labels",
+  "is-stacked-labels",
 ];
 
 function isTopbarOverflowing() {
@@ -5452,8 +5454,9 @@ function setTopbarActionsInStatusbar(inStatusbar) {
 }
 
 // Compact the application bar one step at a time, only while the commands
-// would otherwise scroll. Late steps move file actions to the status bar and
-// leave Select, Move, and Rotate as icons.
+// would otherwise scroll. Late steps move file actions to the status bar,
+// leave Select, Move, and Rotate as icons, shorten command names, and finally
+// stack every icon over its short name.
 function fitTopbar() {
   topbar.classList.remove(...TOPBAR_COMPACT_STEPS);
   setTopbarActionsInStatusbar(false);
