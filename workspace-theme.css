@@ -1288,6 +1288,34 @@ input:checked + .toggle-track,
 .topbar.is-transform-labels-hidden .tool-gizmo-slot .gizmo-option span {
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
 }
+/* Short labels replace long command names before the strip would scroll. */
+.topbar.is-short-labels .rail-button[data-short-label] span {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+}
+.topbar.is-short-labels .rail-button[data-short-label]::after {
+  content: attr(data-short-label) / "";
+}
+/* Narrowest bars stack every command's icon over its short label in equal columns. */
+.topbar.is-stacked-labels { grid-template-columns: minmax(0, 1fr); }
+.topbar.is-stacked-labels .command-strip { grid-column: 1; }
+.topbar.is-stacked-labels .tool-panel { width: 100%; }
+.topbar.is-stacked-labels .tool-gizmo-slot,
+.topbar.is-stacked-labels .tool-gizmo-slot .gizmo-segment { display: contents; }
+.topbar.is-stacked-labels .command-strip .rail-button,
+.topbar.is-stacked-labels .command-strip .gizmo-option {
+  flex: 1 1 0; min-width: max-content; flex-direction: column; justify-content: center;
+  gap: 2px; padding: 0 2px; font-size: 9px; line-height: 11px; letter-spacing: -0.01em;
+}
+.topbar.is-stacked-labels .command-strip .rail-button .icon,
+.topbar.is-stacked-labels .command-strip .gizmo-option .icon { width: 18px; height: 18px; }
+.topbar.is-stacked-labels .select-tool-button span,
+.topbar.is-stacked-labels .tool-gizmo-slot .gizmo-option span {
+  position: static; width: auto; height: auto; overflow: visible; clip-path: none; font-size: inherit;
+}
+.topbar.is-stacked-labels .command-strip [data-section="rotation"],
+.topbar.is-stacked-labels .command-strip #planeButton { margin-left: 7px; }
+.topbar.is-stacked-labels .command-strip [data-section="rotation"]::before,
+.topbar.is-stacked-labels .command-strip #planeButton::before { left: -5px; }
 
 /* File actions moved out of a narrow application bar sit at the status bar's end. */
 .status-brand {
@@ -1379,6 +1407,16 @@ input:checked + .toggle-track,
   .status-help-slot { display: none; }
   .status-actions-slot { order: 1; margin-left: 0; }
   .toast { top: calc(var(--cad-topbar-height) + 56px); bottom: auto; max-width: calc(100% - 24px); }
+}
+
+/* Phones keep display mode names; stacked commands also stack the display modes. */
+@media (max-width: 700px), (max-width: 900px) and (max-height: 500px) {
+  .viewport-display-slot .display-tabs { width: auto; }
+  .viewport-display-slot .display-tab span { display: inline; }
+  .workspace:has(.topbar.is-stacked-labels) .viewport-display-slot .display-tab {
+    flex-direction: column; justify-content: center; gap: 2px; min-width: 52px; padding: 0 4px;
+    font-size: 9px; line-height: 11px;
+  }
 }
 
 @media (max-width: 900px) and (max-height: 500px) {
