@@ -3260,79 +3260,6 @@ body {
   height: 27px;
 }
 
-.cad-menu-bar {
-  display: flex;
-  height: 100%;
-  align-items: stretch;
-}
-
-.cad-menu {
-  position: relative;
-  height: 100%;
-}
-
-.cad-menu summary {
-  display: flex;
-  height: 100%;
-  align-items: center;
-  padding: 0 14px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.cad-menu summary::-webkit-details-marker {
-  display: none;
-}
-
-.cad-menu summary:hover,
-.cad-menu[open] summary {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
-
-.cad-menu-popover {
-  position: absolute;
-  z-index: 80;
-  top: calc(100% + 1px);
-  left: 0;
-  display: grid;
-  width: 224px;
-  padding: 4px;
-  background: var(--cad-panel);
-  border: 1px solid var(--cad-line);
-}
-
-.cad-menu-popover button {
-  display: flex;
-  min-height: 34px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 0 9px;
-  background: transparent;
-  color: var(--text-primary);
-  cursor: pointer;
-  text-align: left;
-}
-
-.cad-menu-popover button:hover:not(:disabled) {
-  background: var(--surface-hover);
-}
-
-.cad-menu-popover button:disabled {
-  color: var(--text-tertiary);
-  cursor: not-allowed;
-  opacity: 0.48;
-}
-
-.cad-menu-popover kbd {
-  color: var(--text-tertiary);
-  font: inherit;
-  font-size: 10px;
-}
-
 .header-actions {
   gap: 5px;
   padding: 0 8px;
@@ -4308,10 +4235,6 @@ body {
     font-size: 15px;
   }
 
-  .cad-menu summary {
-    padding: 0 9px;
-  }
-
   .action-button {
     width: 34px;
     min-width: 34px;
@@ -4352,8 +4275,7 @@ body {
     border-right: 0;
   }
 
-  .brand span,
-  .cad-menu-bar {
+  .brand span {
     display: none;
   }
 

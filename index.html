@@ -226,46 +226,9 @@
               <img src="favicon.svg" alt="" width="64" height="48">
               <span>MeshToZero</span>
             </a>
-
-            <nav class="cad-menu-bar" aria-label="Application menu">
-              <details class="cad-menu">
-                <summary>File</summary>
-                <div class="cad-menu-popover">
-                  <button id="menuImportButton" type="button" data-cad-command="import">
-                    <span>Import Model</span><kbd>Ctrl+O</kbd>
-                  </button>
-                  <button id="menuExportButton" type="button" data-cad-command="export">
-                    <span>Export Model</span><kbd>Ctrl+E</kbd>
-                  </button>
-                  <button type="button" data-cad-command="clear">
-                    <span>Clear Model</span>
-                  </button>
-                </div>
-              </details>
-              <details class="cad-menu">
-                <summary>Edit</summary>
-                <div class="cad-menu-popover">
-                  <button id="menuUndoButton" type="button" data-cad-command="undo">
-                    <span>Undo</span><kbd>Ctrl+Z</kbd>
-                  </button>
-                  <button id="menuRedoButton" type="button" data-cad-command="redo">
-                    <span>Redo</span><kbd>Ctrl+Shift+Z</kbd>
-                  </button>
-                </div>
-              </details>
-              <details class="cad-menu">
-                <summary>View</summary>
-                <div class="cad-menu-popover">
-                  <button type="button" data-cad-command="fit">
-                    <span>Fit Model</span><kbd>F</kbd>
-                  </button>
-                  <button type="button" data-cad-command="mesh"><span>Mesh</span><kbd>1</kbd></button>
-                  <button type="button" data-cad-command="vertices"><span>Vertices</span><kbd>2</kbd></button>
-                  <button type="button" data-cad-command="edges"><span>Edges</span><kbd>3</kbd></button>
-                </div>
-              </details>
-            </nav>
           </div>
+
+          <div class="command-strip" id="commandStrip" aria-label="Model commands"></div>
 
           <div class="header-actions">
             <button class="action-button" id="importButton" type="button">
@@ -282,8 +245,6 @@
           </div>
         </header>
 
-        <div class="command-strip" id="commandStrip" aria-label="Model commands"></div>
-
         <div class="model-status" id="modelStatus" aria-live="polite" hidden>
           <span class="status-dot" aria-hidden="true"></span>
           <span id="modelName">Untitled mesh</span>
@@ -292,7 +253,7 @@
 
         <aside class="left-rail" aria-label="Model tools">
           <nav class="tool-panel" id="toolPanel" aria-label="Model tools">
-            <button class="rail-button select-tool-button" type="button" data-view-help="selection">
+            <button class="rail-button select-tool-button" type="button" data-view-help="selection" title="Select">
               <svg class="icon" aria-hidden="true"><use href="#icon-select"></use></svg>
               <span>Select</span>
             </button>
@@ -900,11 +861,11 @@
 
               <div class="gizmo-control-row">
                 <div class="gizmo-segment" role="group" aria-label="Gizmo operation">
-                  <button class="gizmo-option is-active" type="button" data-gizmo-mode="translate" aria-pressed="true">
+                  <button class="gizmo-option is-active" type="button" data-gizmo-mode="translate" aria-pressed="true" title="Move">
                     <svg class="icon" aria-hidden="true"><use href="#icon-move"></use></svg>
                     <span>Move</span>
                   </button>
-                  <button class="gizmo-option" type="button" data-gizmo-mode="rotate" aria-pressed="false">
+                  <button class="gizmo-option" type="button" data-gizmo-mode="rotate" aria-pressed="false" title="Rotate">
                     <svg class="icon" aria-hidden="true"><use href="#icon-rotate"></use></svg>
                     <span>Rotate</span>
                   </button>
@@ -1038,8 +999,10 @@
 
         <footer class="cad-statusbar" role="group" aria-label="Workspace status and links">
           <a class="repository-link" href="https://github.com/espmaniac/MeshToZero" target="_blank" rel="noopener noreferrer" aria-label="MeshToZero repository on GitHub (opens in a new tab)" title="View repository on GitHub"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M12 .75a11.25 11.25 0 0 0-3.56 21.92c.56.1.77-.24.77-.54v-2.1c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.68.08-.68 1.13.08 1.73 1.16 1.73 1.16 1 1.72 2.63 1.22 3.27.93.1-.73.39-1.22.71-1.5-2.5-.29-5.13-1.25-5.13-5.56 0-1.23.44-2.23 1.16-3.02-.12-.29-.5-1.43.11-2.98 0 0 .95-.3 3.1 1.15A10.8 10.8 0 0 1 12 6.17c.96 0 1.92.13 2.82.38 2.15-1.45 3.1-1.15 3.1-1.15.61 1.55.23 2.69.11 2.98.72.79 1.16 1.79 1.16 3.02 0 4.32-2.63 5.27-5.14 5.55.4.35.76 1.04.76 2.1v3.08c0 .3.2.65.77.54A11.25 11.25 0 0 0 12 .75Z"/></svg></a>
+          <span class="status-brand" id="statusBrand" hidden>MeshToZero</span>
           <button class="mobile-panel-toggle" id="mobilePanelToggle" type="button" aria-controls="inspectorRail" aria-expanded="false">Properties</button>
           <div class="status-help-slot" id="statusHelpSlot"></div>
+          <div class="status-actions-slot" id="statusActionsSlot"></div>
           <div class="coordinate-dock">
         <div class="view-cube" id="viewCube" aria-label="View orientation controls">
           <canvas
