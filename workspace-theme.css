@@ -1,6 +1,6 @@
 /* Neutral desktop surfaces and compact geometry controls. */
 :root {
-  --cad-topbar-height: 92px;
+  --cad-topbar-height: 48px;
   --cad-tool-width: 0px;
   --cad-browser-width: 224px;
   --cad-left-width: 224px;
@@ -41,7 +41,7 @@
   height: 100%;
 }
 .topbar {
-  height: 42px;
+  height: var(--cad-topbar-height);
   background: var(--toolbar-color);
   color: #111111;
   border-bottom-color: #333333;
@@ -54,18 +54,6 @@
 }
 :root .brand img {
   filter: none;
-}
-.cad-menu summary {
-  color: #111111;
-  font-size: 12px;
-  padding: 0 12px;
-}
-.cad-menu-popover {
-  border-radius: 5px;
-  background: var(--surface);
-}
-.cad-menu-popover button {
-  border-radius: 3px;
 }
 .header-actions {
   gap: 6px;
@@ -96,15 +84,30 @@
 .scene-toggle {
   display: none;
 }
+/* Model commands stay centered in the window while the side groups fit. */
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+}
+.topbar-start {
+  grid-column: 1;
+}
+.header-actions {
+  grid-column: 3;
+  justify-self: end;
+}
 .command-strip {
-  position: absolute;
-  z-index: 30;
-  top: 42px;
-  right: 0;
-  left: 0;
-  height: 50px;
-  background: var(--cad-chrome);
-  border-bottom: 1px solid var(--cad-line);
+  display: flex;
+  grid-column: 2;
+  min-width: 0;
+  height: 100%;
+  padding: 0 10px;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  pointer-events: auto;
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
 }
 .command-strip .tool-panel {
   display: flex;
@@ -116,8 +119,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
   align-items: center;
 }
 .command-strip .rail-button,
@@ -136,8 +138,8 @@
 }
 .command-strip .rail-button .icon,
 .command-strip .gizmo-option .icon {
-  width: 21px;
-  height: 21px;
+  width: 18px;
+  height: 18px;
 }
 .command-strip .rail-button span {
   position: static;
@@ -165,7 +167,7 @@
 .left-rail,
 .left-rail.is-workbench-mode,
 .left-rail.has-active-workbench {
-  top: 92px;
+  top: var(--cad-topbar-height);
   width: var(--cad-browser-width);
   grid-template-columns: 1fr;
 }
@@ -191,7 +193,7 @@
   border-radius: 3px;
 }
 .right-rail {
-  top: 92px;
+  top: var(--cad-topbar-height);
   bottom: 168px;
 }
 .right-rail .transform-card {
@@ -346,7 +348,7 @@
   background: #e5e5e5;
 }
 .viewport-display-slot {
-  top: 102px;
+  top: calc(var(--cad-topbar-height) + 10px);
 }
 .viewport-display-slot .display-tabs {
   border-radius: 4px;
@@ -590,9 +592,6 @@
   :root {
     --cad-inspector-width: 188px;
   }
-  .topbar {
-    height: 42px;
-  }
   .brand {
     min-width: 0;
     padding: 0 8px;
@@ -634,11 +633,11 @@
   }
   .viewport-display-slot {
     left: 8px;
-    top: 102px;
+    top: calc(var(--cad-topbar-height) + 10px);
   }
   .view-toolbar {
     bottom: auto;
-    top: 144px;
+    top: calc(var(--cad-topbar-height) + 52px);
     left: 8px;
     right: auto;
     margin: 0;
@@ -658,16 +657,16 @@
     padding-left: 4px;
   }
   .model-status {
-    top: 192px;
+    top: calc(var(--cad-topbar-height) + 100px);
     left: 8px;
     max-width: calc(100% - 24px);
   }
   .toast {
-    top: 192px;
+    top: calc(var(--cad-topbar-height) + 100px);
     bottom: auto;
   }
   .drop-overlay {
-    inset: 96px 8px 44px;
+    inset: calc(var(--cad-topbar-height) + 4px) 8px 44px;
   }
 }
 
@@ -801,25 +800,13 @@ body {
   border-bottom: 1px solid #646463;
 }
 
-.brand,
-.cad-menu summary {
+.brand {
   color: #171717;
 }
 
 .topbar .brand {
   border-right: 0;
   font-weight: 600;
-}
-
-.topbar .cad-menu summary {
-  height: 28px;
-  margin: 7px 2px;
-  border-radius: 5px;
-}
-
-.topbar .cad-menu summary:hover,
-.topbar .cad-menu[open] summary {
-  background: #929292;
 }
 
 .topbar .header-actions {
@@ -855,33 +842,14 @@ body {
   transform: none;
 }
 
-.cad-menu-popover {
-  background: #434343;
-  border: 1px solid #313131;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
-  color: #f2f2f2;
-}
-
-.cad-menu-popover button {
-  color: #f2f2f2;
-  background: transparent;
-}
-
-.cad-menu-popover button:hover {
-  background: #616161;
-}
-
-/* Grouped commands with subtle translucency over the viewport. */
-.command-strip {
-  background: #6f6f6e;
-  border-bottom-color: #545454;
-}
-
+/* Grouped commands inside the application bar. */
+/* Auto margins center the commands and collapse once the strip scrolls. */
 .command-strip .tool-panel {
+  flex: 0 0 auto;
   width: max-content;
-  max-width: calc(100% - 20px);
-  height: 40px;
-  margin: 4px 10px;
+  max-width: none;
+  height: 34px;
+  margin: 0 auto;
   padding: 3px;
   background: #545454;
   border: 1px solid #484848;
@@ -910,8 +878,8 @@ body {
   content: "";
   position: absolute;
   left: -11px;
-  top: 7px;
-  bottom: 7px;
+  top: 5px;
+  bottom: 5px;
   width: 1px;
   background: #707070;
   pointer-events: none;
@@ -922,11 +890,6 @@ body {
     background: rgb(124 124 124 / 96%);
     backdrop-filter: blur(6px);
   }
-
-  .command-strip {
-    background: rgb(111 111 110 / 94%);
-    backdrop-filter: blur(6px);
-  }
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -934,17 +897,12 @@ body {
     background: #7c7c7c;
     backdrop-filter: none;
   }
-
-  .command-strip {
-    background: #6f6f6e;
-    backdrop-filter: none;
-  }
 }
 
 .command-strip .rail-button,
 .command-strip .gizmo-option {
-  min-height: 32px;
-  height: 32px;
+  min-height: 26px;
+  height: 26px;
   color: #f5f5f5;
   background: transparent;
   border: 1px solid transparent;
@@ -1310,35 +1268,98 @@ input:checked + .toggle-track,
 .repository-link:hover { background: #707070; color: #ffffff; }
 .mobile-panel-toggle { display: none; }
 
+/* The application bar drops the logo image, file action labels, then the
+   brand name, but only while the bar would otherwise overflow. */
+.topbar .brand { width: auto; min-width: 0; padding: 0 14px; }
+.topbar .brand span { display: inline; }
+.topbar.is-brand-text-only .brand img { display: none; }
+.topbar.is-brand-icon-only .brand { padding: 0 8px; }
+.topbar.is-brand-icon-only .brand span { display: none; }
+.topbar:not(.is-actions-compact) .header-actions .action-button { width: auto; min-width: 92px; padding: 0 10px; }
+.topbar:not(.is-actions-compact) .action-button span {
+  position: static; width: auto; height: auto; overflow: visible; clip-path: none;
+}
+.topbar.is-actions-compact .header-actions .action-button { width: 28px; min-width: 28px; padding: 0; justify-content: center; }
+.topbar.is-actions-compact .action-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.topbar.is-actions-in-statusbar .topbar-start { display: none; }
+.topbar.is-transform-labels-hidden .select-tool-button,
+.topbar.is-transform-labels-hidden .tool-gizmo-slot .gizmo-option { padding: 0 7px; }
+.topbar.is-transform-labels-hidden .select-tool-button span,
+.topbar.is-transform-labels-hidden .tool-gizmo-slot .gizmo-option span {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+}
+
+/* File actions moved out of a narrow application bar sit at the status bar's end. */
+.status-brand {
+  flex: 0 0 auto;
+  padding: 0 6px 0 2px;
+  color: #eeeeee;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.status-actions-slot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+.status-actions-slot { margin-left: auto; }
+.status-actions-slot:empty { display: none; }
+.status-actions-slot:not(:empty) + .coordinate-dock { margin-left: 0; }
+.status-actions-slot .header-actions { gap: 2px; height: 100%; padding: 0 6px; }
+.status-actions-slot .header-actions .action-button,
+.status-actions-slot .header-actions .theme-toggle {
+  width: 32px; min-width: 32px; height: 28px; padding: 0; justify-content: center;
+  background: transparent; border-color: transparent; color: #dddddd;
+}
+.status-actions-slot .header-actions .action-button:not(:disabled):hover,
+.status-actions-slot .header-actions .theme-toggle:hover {
+  background: #707070; border-color: transparent; color: #ffffff;
+}
+.status-actions-slot .action-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
 /* Phone panels overlay the viewport without displacing its bottom controls. */
 @media (max-width: 700px), (max-width: 900px) and (max-height: 500px) {
   :root { --cad-inspector-width: 0px; --cad-left-width: 0px; }
   .app-shell, .workspace { height: 100dvh; min-height: 100dvh; }
-  .topbar { height: calc(48px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
-  .topbar .brand { min-width: 0; width: auto; padding: 0 8px; }
-  .brand span, .cad-menu-bar { display: none; }
+  :root { --cad-topbar-height: calc(56px + env(safe-area-inset-top)); }
+  .topbar { padding-top: env(safe-area-inset-top); }
   .topbar .header-actions { margin-left: auto; gap: 4px; padding-right: 6px; }
   .header-actions .action-button, .header-actions .theme-toggle {
     display: inline-flex; width: 40px; min-width: 40px; height: 40px; padding: 0; justify-content: center;
   }
   .action-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .command-strip { top: calc(48px + env(safe-area-inset-top)); height: 56px; }
-  .command-strip .tool-panel { height: 48px; margin: 4px 6px; max-width: calc(100% - 12px); padding: 1px; touch-action: pan-x; }
-  .command-strip .rail-button, .command-strip .gizmo-option { height: 44px; min-height: 44px; font-size: 11px; }
-  .viewport-display-slot { top: calc(112px + env(safe-area-inset-top)); left: 8px; }
-  .viewport-display-slot .display-tab { min-height: 40px; }
+  .topbar.is-actions-compact .header-actions .action-button { width: 40px; min-width: 40px; }
+  /* Phone commands and display modes share one height, inset, and corner radius. */
+  .command-strip { padding: 0 8px; touch-action: pan-x; }
+  .command-strip .tool-panel { height: 44px; padding: 2px; }
+  .command-strip .rail-button, .command-strip .gizmo-option { height: 38px; min-height: 38px; font-size: 11px; }
+  .command-strip .rail-button .icon, .command-strip .gizmo-option .icon { width: 20px; height: 20px; }
+  .viewport-display-slot .display-tabs { height: 44px; padding: 2px; border-radius: 8px; }
+  .viewport-display-slot .display-tab { min-height: 38px; height: 38px; border-radius: 6px; }
+  .viewport-display-slot .display-tab .icon { width: 18px; height: 18px; }
+  .viewport-display-slot { top: calc(var(--cad-topbar-height) + 8px); left: 8px; }
   .view-toolbar {
-    top: auto; bottom: calc(48px + env(safe-area-inset-bottom)); left: 6px; right: 6px;
-    height: 44px; max-width: calc(100% - 12px); margin-inline: auto; padding: 0 2px;
+    top: auto; bottom: calc(48px + env(safe-area-inset-bottom)); left: 6px; right: 88px;
+    height: 44px; max-width: calc(100% - 94px); margin-inline: auto; padding: 0 2px;
   }
-  .view-toolbar .view-button, .view-toolbar .history-button { width: 40px; height: 40px; flex: 0 0 auto; }
+  .view-toolbar .view-button, .view-toolbar .history-button {
+    width: clamp(32px, calc((100vw - 140px) / 7), 40px); height: 40px; flex: 0 0 auto;
+  }
   .view-toolbar .history-actions { height: 40px; }
   .cad-statusbar { height: calc(40px + env(safe-area-inset-bottom)); padding: 0 4px env(safe-area-inset-bottom); align-items: center; }
   .repository-link { width: 40px; height: 40px; }
-  .mobile-panel-toggle { display: block; min-height: 40px; padding: 0 8px; background: transparent; color: #eeeeee; font-size: 11px; }
+  /* Properties shares the view navigation row, under the view cube. */
+  .mobile-panel-toggle {
+    position: absolute; z-index: 1; right: 6px; bottom: calc(100% + 8px); display: block;
+    width: 76px; height: 44px; padding: 0 4px; border: 1px solid #434343; border-radius: 8px;
+    background: #545454; color: #eeeeee; font-size: 11px; white-space: nowrap;
+  }
+  .mobile-panel-toggle:hover { background: #616161; color: #ffffff; }
   .coordinate-dock { position: static; height: auto; flex: 1; min-width: 0; align-self: center; padding: 0 4px; border: 0; background: transparent; }
   .coordinate-dock .status-position { font-size: 8px; white-space: normal; }
-  .coordinate-dock .view-cube { position: absolute; right: 8px; bottom: calc(104px + env(safe-area-inset-bottom)); width: 72px; height: 96px; }
+  .coordinate-dock .view-cube { position: absolute; right: 8px; bottom: calc(100px + env(safe-area-inset-bottom)); width: 72px; height: 96px; }
   .coordinate-dock .view-cube-canvas { width: 72px; height: 72px; }
   .right-rail, .right-rail.has-active-workbench {
     display: none; top: auto; left: 6px; right: 6px; bottom: calc(100px + env(safe-area-inset-bottom));
@@ -1350,18 +1371,19 @@ input:checked + .toggle-track,
   .right-rail .transform-card { max-height: 100%; overflow-y: auto; }
   .right-rail.mobile-inspector-open ~ .cad-statusbar .view-cube { display: none; }
   .left-rail { display: none; }
-  .left-rail.scene-open { top: calc(112px + env(safe-area-inset-top)); bottom: calc(100px + env(safe-area-inset-bottom)); left: 6px; width: min(280px, calc(100% - 12px)); height: auto; border-radius: 8px; overflow-y: auto; }
+  .left-rail.scene-open { top: calc(var(--cad-topbar-height) + 8px); bottom: calc(100px + env(safe-area-inset-bottom)); left: 6px; width: min(280px, calc(100% - 12px)); height: auto; border-radius: 8px; overflow-y: auto; }
   .workbench-scroll, .settings-content { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .right-rail input, .right-rail select, .settings-dialog input { font-size: 16px; }
   .right-rail .icon-button { width: 40px; height: 40px; }
   .right-rail .workbench-header { min-height: 48px; }
   .status-help-slot { display: none; }
-  .toast { top: 160px; bottom: auto; max-width: calc(100% - 24px); }
+  .status-actions-slot { order: 1; margin-left: 0; }
+  .toast { top: calc(var(--cad-topbar-height) + 56px); bottom: auto; max-width: calc(100% - 24px); }
 }
 
 @media (max-width: 900px) and (max-height: 500px) {
   .right-rail, .right-rail.has-active-workbench {
-    top: calc(112px + env(safe-area-inset-top));
+    top: calc(var(--cad-topbar-height) + 8px);
     left: auto;
     right: 6px;
     width: min(340px, calc(100% - 12px));
@@ -1443,9 +1465,10 @@ input:checked + .toggle-track,
   .smart-plane-toolbar button, .smart-plane-toolbar select, .smart-plane-toolbar input { min-height: 40px; }
   .smart-plane-toolbar input, .smart-plane-toolbar select { font-size: 16px; }
   .smart-plane-toolbar .smart-plane-icon-button { width: 40px; }
-  .view-toolbar.is-plane-picking { bottom: calc(48px + env(safe-area-inset-bottom)); left: 6px; right: 6px; width: calc(100% - 12px); margin-inline: auto; padding: 8px; }
-  .workspace:has(.view-toolbar.is-plane-picking) .right-rail { bottom: calc(60px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom)); }
-  .workspace:has(.view-toolbar.is-plane-picking) .coordinate-dock .view-cube { bottom: calc(64px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom)); }
+  .view-toolbar.is-plane-picking { bottom: calc(48px + env(safe-area-inset-bottom)); left: 6px; right: 6px; width: calc(100% - 12px); max-width: calc(100% - 12px); margin-inline: auto; padding: 8px; }
+  .workspace:has(.view-toolbar.is-plane-picking) .right-rail { bottom: calc(108px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom)); }
+  .workspace:has(.view-toolbar.is-plane-picking) .mobile-panel-toggle { bottom: calc(100% + 16px + var(--plane-toolbar-height, 130px)); }
+  .workspace:has(.view-toolbar.is-plane-picking) .coordinate-dock .view-cube { bottom: calc(112px + var(--plane-toolbar-height, 130px) + env(safe-area-inset-bottom)); }
 }
 @container plane-toolbar (max-width: 600px) {
   .smart-plane-header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; }

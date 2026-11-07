@@ -111,7 +111,7 @@ Current model transformations are baked into exported vertex coordinates.
 
 ## Workspace controls
 
-- The top command strip groups model transforms, alignment, and construction tools. Scroll the strip horizontally on narrow screens.
+- The application bar groups model transforms, alignment, and construction tools between the logo and file actions. When space runs out, the bar first hides the logo image, then the file action labels, then the logo text. After that, the file actions, settings, and Scene buttons move to the right end of the status bar and the name appears beside the repository link. Select, Move, and Rotate then show icons only. The tools scroll horizontally only if they still do not fit. On phones, Properties sits beside the view navigation, under the ViewCube.
 - Scene objects, reference planes, and edit history stay in the left panel. Use the Scene button to open this panel on smaller screens.
 - Construction methods, axis targets, coordinate spaces, and geometry snaps pair icons with text labels.
 - Workspace settings contains coordinate space, grid and angle increments, and geometry snapping. The status bar shows whether snapping is active. Settings apply immediately for the current session.

@@ -5045,8 +5045,6 @@ try {
 const HISTORY_LIMIT = 100;
 const undoButton = document.querySelector("#undoButton");
 const redoButton = document.querySelector("#redoButton");
-const menuUndoButton = document.querySelector("#menuUndoButton");
-const menuRedoButton = document.querySelector("#menuRedoButton");
 const historyPanelToggle = document.querySelector("#historyPanelToggle");
 const historyPanelBody = document.querySelector("#historyPanelBody");
 const historyPosition = document.querySelector("#historyPosition");
@@ -5281,8 +5279,6 @@ function updateHistoryUi() {
   const canRedo = Boolean(redoLabel) && !historyLocked && !transformGizmoDragging;
   undoButton.disabled = !canUndo;
   redoButton.disabled = !canRedo;
-  menuUndoButton.disabled = !canUndo;
-  menuRedoButton.disabled = !canRedo;
   undoButton.title = canUndo ? "Undo " + undoLabel + " (Ctrl+Z)" : "Nothing to undo";
   redoButton.title = canRedo ? "Redo " + redoLabel + " (Ctrl+Y)" : "Nothing to redo";
   undoButton.setAttribute("aria-label", canUndo ? "Undo " + undoLabel : "Nothing to undo");
@@ -5428,6 +5424,50 @@ function mountCadWorkspacePanels() {
 
 mountCadWorkspacePanels();
 
+const topbar = document.querySelector(".topbar");
+const commandStrip = document.querySelector("#commandStrip");
+const headerActions = document.querySelector(".header-actions");
+const statusBrand = document.querySelector("#statusBrand");
+const statusActionsSlot = document.querySelector("#statusActionsSlot");
+const TOPBAR_COMPACT_STEPS = [
+  "is-brand-text-only",
+  "is-actions-compact",
+  "is-brand-icon-only",
+  "is-actions-in-statusbar",
+  "is-transform-labels-hidden",
+];
+
+function isTopbarOverflowing() {
+  return topbar.scrollWidth > topbar.clientWidth || commandStrip.scrollWidth > commandStrip.clientWidth;
+}
+
+function setTopbarActionsInStatusbar(inStatusbar) {
+  (inStatusbar ? statusActionsSlot : topbar).append(headerActions);
+  statusBrand.hidden = !inStatusbar;
+  // The brand name yields first when the coordinate readout cannot fit on one line.
+  if (!inStatusbar) return;
+  statusPosition.style.whiteSpace = "nowrap";
+  if (statusPosition.scrollWidth > statusPosition.clientWidth) statusBrand.hidden = true;
+  statusPosition.style.whiteSpace = "";
+}
+
+// Compact the application bar one step at a time, only while the commands
+// would otherwise scroll. Late steps move file actions to the status bar and
+// leave Select, Move, and Rotate as icons.
+function fitTopbar() {
+  topbar.classList.remove(...TOPBAR_COMPACT_STEPS);
+  setTopbarActionsInStatusbar(false);
+  for (const step of TOPBAR_COMPACT_STEPS) {
+    if (!isTopbarOverflowing()) return;
+    if (step === "is-brand-icon-only") topbar.classList.remove("is-brand-text-only");
+    if (step === "is-actions-in-statusbar") setTopbarActionsInStatusbar(true);
+    topbar.classList.add(step);
+  }
+}
+
+new ResizeObserver(fitTopbar).observe(topbar);
+document.fonts?.ready.then(fitTopbar);
+
 const mobilePanelToggle = document.querySelector("#mobilePanelToggle");
 function setMobilePanelOpen(open) {
   rightRail.classList.toggle("mobile-inspector-open", open);
@@ -5527,41 +5567,6 @@ document.querySelectorAll("[data-view-action]").forEach((button) => {
     if (action === "zoom-out") viewport?.zoom("out");
     if (action === "fit") viewport?.fitView();
   });
-});
-
-function runCadCommand(command) {
-  if (command === "import") importButton.click();
-  if (command === "export") exportButton.click();
-  if (command === "clear") clearModelButton.click();
-  if (command === "undo") undoLastEdit();
-  if (command === "redo") redoLastEdit();
-  if (command === "fit") viewport?.fitView();
-  if (command === "mesh") selectDisplayMode("mesh");
-  if (command === "vertices") selectDisplayMode("vertices");
-  if (command === "edges") selectDisplayMode("edges");
-}
-
-document.querySelectorAll("[data-cad-command]").forEach((button) => {
-  button.addEventListener("click", () => {
-    runCadCommand(button.dataset.cadCommand);
-    button.closest("details")?.removeAttribute("open");
-  });
-});
-
-document.querySelectorAll(".cad-menu").forEach((menu) => {
-  menu.addEventListener("toggle", () => {
-    if (!menu.open) return;
-    for (const sibling of document.querySelectorAll(".cad-menu[open]")) {
-      if (sibling !== menu) sibling.removeAttribute("open");
-    }
-  });
-});
-
-document.addEventListener("pointerdown", (event) => {
-  if (event.target instanceof Element && event.target.closest(".cad-menu")) return;
-  for (const menu of document.querySelectorAll(".cad-menu[open]")) {
-    menu.removeAttribute("open");
-  }
 });
 
 const PLANE_MODES = {
@@ -8141,8 +8146,6 @@ document.querySelector("#centerButton").addEventListener("click", centerModelToO
 const fileInput = document.querySelector("#fileInput");
 const importButton = document.querySelector("#importButton");
 const exportButton = document.querySelector("#exportButton");
-const menuImportButton = document.querySelector("#menuImportButton");
-const menuExportButton = document.querySelector("#menuExportButton");
 const clearModelButton = document.querySelector("#clearModelButton");
 const modelStatus = document.querySelector("#modelStatus");
 const modelName = document.querySelector("#modelName");
@@ -8160,8 +8163,6 @@ function updateFileActionState() {
   importButton.setAttribute("aria-busy", String(importInProgress));
   exportButton.disabled = isBusy || !viewport?.canExportModel();
   exportButton.setAttribute("aria-busy", String(exportInProgress));
-  menuImportButton.disabled = isBusy;
-  menuExportButton.disabled = exportButton.disabled;
   fileInput.disabled = isBusy;
   clearModelButton.disabled = isBusy;
   for (const control of transformGizmoControlElements) control.disabled = isBusy;
